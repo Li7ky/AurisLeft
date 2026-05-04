@@ -1,0 +1,16 @@
+.playlist-page {
+  display: flex;
+  height: 100%;
+}
+
+.playlist-page__sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+.playlist-page__content {
+  flex: 1;
+  overflow: hidden;
+  height: 100%;
+}

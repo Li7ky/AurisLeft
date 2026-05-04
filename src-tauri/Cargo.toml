@@ -1,0 +1,57 @@
+[package]
+name = "music-player"
+version = "0.1.0"
+description = "A desktop music player compatible with LX Music sources"
+authors = ["Music Player Contributors"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "music_player_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Audio playback
+rodio = "0.19"
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "gzip", "brotli", "cookies", "blocking"], default-features = false }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Async utilities (renamed to avoid conflict with Tauri macros)
+futures_crate = { package = "futures", version = "0.3" }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
+# UUID for unique IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# URL encoding
+url = "2"
+

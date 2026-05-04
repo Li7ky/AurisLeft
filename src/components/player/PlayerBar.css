@@ -1,0 +1,179 @@
+.player-bar {
+  height: var(--player-bar-height);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 240px 1fr 200px;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
+}
+
+.player-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.player-bar__cover {
+  width: 56px;
+  height: 56px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.player-bar__cover-placeholder {
+  width: 56px;
+  height: 56px;
+  border-radius: 4px;
+  background: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.player-bar__song-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.player-bar__song-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-bar__artist-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-bar__favorite-btn {
+  padding: 4px;
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.player-bar__favorite-btn:hover {
+  color: var(--accent);
+}
+
+.player-bar__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-bar__controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.player-bar__control-btn {
+  padding: 6px;
+  font-size: 16px;
+  color: var(--text-primary);
+  border-radius: 50%;
+}
+
+.player-bar__control-btn:hover {
+  background: var(--surface-hover);
+}
+
+.player-bar__play-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--text-primary);
+  color: var(--background);
+  font-size: 16px;
+}
+
+.player-bar__play-btn:hover {
+  background: var(--accent);
+  transform: scale(1.05);
+}
+
+.player-bar__progress-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.player-bar__time {
+  font-size: 11px;
+  color: var(--text-secondary);
+  min-width: 36px;
+  text-align: center;
+}
+
+.player-bar__progress {
+  flex: 1;
+  height: 4px;
+}
+
+.player-bar__progress:hover {
+  height: 5px;
+}
+
+.player-bar__right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.player-bar__volume-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.player-bar__volume-icon {
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.player-bar__volume-slider {
+  width: 60px;
+}
+
+.player-bar__quality-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.player-bar__quality-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
+.player-bar__empty {
+  color: var(--text-secondary);
+  font-size: 13px;
+}

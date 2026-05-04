@@ -1,0 +1,35 @@
+.lyric-display {
+  height: 100%;
+  overflow-y: auto;
+  padding: 40px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.lyric-display__empty {
+  color: var(--text-secondary);
+  font-size: 16px;
+  margin-top: 40px;
+}
+
+.lyric-display__line {
+  padding: 12px 24px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.lyric-display__line:hover {
+  color: var(--text-primary);
+}
+
+.lyric-display__line--active {
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 500;
+}
