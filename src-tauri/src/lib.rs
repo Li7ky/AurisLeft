@@ -103,7 +103,36 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            setup(app).map_err(|e| e.into())
+            setup(app).map_err(|e| tauri::Error::Anyhow(e.into()))?;
+            
+            #[cfg(desktop)]
+            {
+                let _ = crate::tray::setup_tray(app);
+            }
+
+            let app_handle = app.handle().clone();
+            spawn_progress_poller(app_handle.clone());
+
+            #[cfg(desktop)]
+            {
+                let hotkey_rx = crate::hotkeys::setup_hotkeys(app);
+                if let Ok(rx) = hotkey_rx {
+                    let app_handle_clone = app_handle.clone();
+                    std::thread::spawn(move || {
+                        while let Ok(action) = rx.recv() {
+                            use crate::hotkeys::HotKeyAction;
+                            let event_name = match action {
+                                HotKeyAction::PlayPause => "hotkey-play-pause",
+                                HotKeyAction::Next => "hotkey-next",
+                                HotKeyAction::Prev => "hotkey-prev",
+                            };
+                            let _ = app_handle_clone.emit(event_name, ());
+                        }
+                    });
+                }
+            }
+            
+            Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::sources::register_source,
@@ -134,35 +163,6 @@ pub fn run() {
             commands::timer::cancel_sleep_timer,
             commands::timer::get_sleep_timer_status,
         ])
-        .setup(|app| {
-            #[cfg(desktop)]
-            {
-                let _ = crate::tray::setup_tray(app);
-            }
-
-            let app_handle = app.handle().clone();
-            spawn_progress_poller(app_handle.clone());
-
-            #[cfg(desktop)]
-            {
-                let hotkey_rx = crate::hotkeys::setup_hotkeys(app);
-                if let Ok(rx) = hotkey_rx {
-                    std::thread::spawn(move || {
-                        while let Ok(action) = rx.recv() {
-                            use crate::hotkeys::HotKeyAction;
-                            let event_name = match action {
-                                HotKeyAction::PlayPause => "hotkey-play-pause",
-                                HotKeyAction::Next => "hotkey-next",
-                                HotKeyAction::Prev => "hotkey-prev",
-                            };
-                            let _ = app_handle.emit(event_name, ());
-                        }
-                    });
-                }
-            }
-
-            Ok(())
-        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
