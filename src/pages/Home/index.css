@@ -1,245 +1,90 @@
 .home-page {
-  padding: 16px 24px 32px;
-  overflow-y: auto;
+  display: flex;
+  gap: 12px;
   height: 100%;
+  padding: 14px 16px 20px;
 }
 
-.home-page__greeting {
-  font-size: 28px;
+.home-page--compact {
+  overflow: hidden;
+}
+
+.home-page__content {
+  min-width: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.home-page__content--with-lyric {
+  flex: 1;
+}
+
+.home-page__title {
+  font-size: 18px;
+  margin: 0 0 12px;
   font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 20px;
-}
-
-.home-page__greeting-wave {
-  font-size: 24px;
 }
 
 .home-page__section {
-  margin-bottom: 28px;
-}
-
-.home-page__section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .home-page__section-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.home-page__section-more {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: color 0.15s;
+  margin: 0 0 8px;
 }
 
-.home-page__section-more:hover {
-  color: var(--text-primary);
-  text-decoration: underline;
-}
-
-/* Quick access grid */
-.home-page__quick-grid {
+.home-page__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
 }
 
-.home-quick-card {
+.home-compact-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: background 0.2s;
-  position: relative;
-  min-height: 56px;
+  gap: 10px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  min-height: 52px;
 }
 
-.home-quick-card:hover {
-  background: rgba(255, 255, 255, 0.1);
+.home-compact-card--muted {
+  opacity: 0.9;
 }
 
-.home-quick-card__cover {
-  width: 56px;
-  height: 56px;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, #333, #555);
-}
-
-.home-quick-card__cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.home-quick-card__placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  font-size: 20px;
-  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
-}
-
-.home-quick-card__name {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding-right: 40px;
-}
-
-.home-quick-card__play {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%) translateY(4px);
+.home-compact-card__icon {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  background: var(--essential-bright-accent);
-  color: var(--background);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  transition: opacity 0.2s, transform 0.2s;
-}
-
-.home-quick-card:hover .home-quick-card__play {
-  opacity: 1;
-  transform: translateY(-50%) translateY(0);
-}
-
-.home-quick-card__play:hover {
-  transform: translateY(-50%) scale(1.05);
-}
-
-/* Card scroll */
-.home-page__card-scroll {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  scrollbar-width: thin;
-}
-
-.home-page__card-scroll::-webkit-scrollbar {
-  height: 6px;
-}
-
-.home-page__card-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.home-page__card-scroll::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
-/* Song card */
-.home-song-card {
-  flex: 0 0 auto;
-  width: 160px;
-  cursor: pointer;
-}
-
-.home-song-card__cover-wrapper {
-  position: relative;
-  width: 160px;
-  height: 160px;
   border-radius: 6px;
-  overflow: hidden;
-  background: var(--surface);
-  margin-bottom: 10px;
-}
-
-.home-song-card__cover {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s;
-}
-
-.home-song-card:hover .home-song-card__cover {
-  transform: scale(1.04);
-}
-
-.home-song-card__cover-placeholder {
-  width: 100%;
-  height: 100%;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
-  font-size: 40px;
-  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
-}
-
-.home-song-card__play-btn {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--essential-bright-accent);
-  color: var(--background);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: opacity 0.2s, transform 0.2s;
-}
-
-.home-song-card:hover .home-song-card__play-btn {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.home-song-card__play-btn:hover {
-  transform: scale(1.05);
-}
-
-.home-song-card__name {
-  font-size: 14px;
-  font-weight: 500;
   color: var(--text-primary);
+  font-size: 14px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 55%, #1f1f1f), #222);
+}
+
+.home-compact-card__meta {
+  flex: 1;
+}
+
+.home-compact-card__name {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 4px;
 }
 
-.home-song-card__artist {
+.home-compact-card__sub {
   font-size: 12px;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -247,60 +92,26 @@
   text-overflow: ellipsis;
 }
 
-/* Empty state */
-.home-page__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 64px 24px;
-  text-align: center;
-}
-
-.home-page__empty-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.home-page__empty-desc {
-  font-size: 14px;
+.home-page__empty-text {
+  padding: 8px 2px;
   color: var(--text-secondary);
-  margin-bottom: 24px;
-  max-width: 400px;
-  line-height: 1.6;
+  font-size: 13px;
 }
 
-.home-page__empty-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.home-page__empty-btn {
-  padding: 10px 24px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
+.home-page__lyric-panel {
+  flex: 1;
+  min-width: 0;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
   border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-primary);
-  transition: all 0.15s;
+  border-radius: 10px;
 }
 
-.home-page__empty-btn:hover {
-  border-color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
-}
+@media (max-width: 960px) {
+  .home-page {
+    flex-direction: column;
+  }
 
-.home-page__empty-btn--primary {
-  background: var(--essential-bright-accent);
-  color: var(--background);
-  border: none;
-}
-
-.home-page__empty-btn--primary:hover {
-  background: var(--text-bright-accent);
-  transform: scale(1.02);
+  .home-page__lyric-panel {
+    min-height: 280px;
+  }
 }

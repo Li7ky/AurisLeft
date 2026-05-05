@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { CSSProperties } from "react";
 import { usePlayerStore } from "../../store/playerStore";
 import { useSleepTimer } from "../../hooks/useSleepTimer";
 import { PlaybackState, Quality } from "../../types";
@@ -107,6 +108,10 @@ export default function PlayerBar() {
     : currentSong
     ? (progress / (currentSong.duration || 1)) * 100
     : 0;
+  const progressPercentClamped = Math.max(0, Math.min(100, progressPercent));
+  const progressStyle = {
+    "--progress-percent": `${progressPercentClamped}%`,
+  } as CSSProperties;
 
   if (!currentSong) {
     return (
@@ -162,31 +167,31 @@ export default function PlayerBar() {
             onClick={() => prev()}
             title="上一首"
           >
-            ⏮
+            <span aria-hidden="true">⏮</span>
           </button>
           <button
             className="player-bar__play-btn"
             onClick={() => (isPlaying ? pause() : resume())}
             title={isPlaying ? "暂停" : "播放"}
           >
-            {isPlaying ? "⏸" : "▶"}
+            <span aria-hidden="true">{isPlaying ? "⏸" : "▶"}</span>
           </button>
           <button
             className="player-bar__control-btn"
             onClick={() => next()}
             title="下一首"
           >
-            ⏭
+            <span aria-hidden="true">⏭</span>
           </button>
         </div>
         <div className="player-bar__progress-wrapper">
           <span className="player-bar__time">
             {formatTime(progress)}
           </span>
-          <div className="player-bar__progress-track">
+          <div className="player-bar__progress-track" style={progressStyle}>
             <div
               className="player-bar__progress-fill"
-              style={{ width: `${progressPercent}%` }}
+              style={{ width: `${progressPercentClamped}%` }}
             />
             <input
               className="player-bar__progress-input"
@@ -207,7 +212,7 @@ export default function PlayerBar() {
       {/* Right: Extra controls */}
       <div className="player-bar__right">
         <button className="player-bar__extra-btn" title="歌词">
-          📝
+          <span aria-hidden="true">词</span>
         </button>
 
         <div className="player-bar__volume-wrapper">
@@ -216,7 +221,7 @@ export default function PlayerBar() {
             title={volume === 0 ? "静音" : volume < 0.5 ? "音量" : "音量"}
             onClick={() => setVolume(volume === 0 ? 0.5 : 0)}
           >
-            {volume === 0 ? "🔇" : volume < 0.5 ? "🔉" : "🔊"}
+            <span aria-hidden="true">{volume === 0 ? "静" : volume < 0.5 ? "中" : "高"}</span>
           </button>
           <input
             className="player-bar__volume-slider"
@@ -245,7 +250,7 @@ export default function PlayerBar() {
             onClick={() => setShowTimerMenu(!showTimerMenu)}
             title="睡眠定时器"
           >
-            🌙
+            <span aria-hidden="true">月</span>
           </button>
           {isActive && (
             <span className="player-bar__timer-remaining">

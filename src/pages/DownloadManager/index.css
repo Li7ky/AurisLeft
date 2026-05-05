@@ -1,6 +1,6 @@
 .download-manager {
-  padding: 16px 24px;
-  max-width: 900px;
+  padding: 14px 16px 20px;
+  max-width: 960px;
   margin: 0 auto;
   height: 100%;
   overflow-y: auto;
@@ -10,39 +10,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .download-manager__title {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
-  color: var(--text-primary);
   margin: 0;
 }
 
 .download-manager__clear-btn {
-  padding: 6px 14px;
+  padding: 6px 12px;
   font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.download-manager__clear-btn:hover {
+  font-weight: 600;
   color: var(--text-primary);
-  border-color: var(--primary);
-  background: var(--surface-hover);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 78%, var(--background));
+  cursor: pointer;
 }
 
 .download-manager__empty {
   text-align: center;
   color: var(--text-secondary);
-  font-size: 14px;
-  padding: 48px 0;
+  font-size: 13px;
+  padding: 40px 0;
 }
 
 .download-manager__list {
@@ -52,21 +44,10 @@
 }
 
 .download-manager__item {
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px 16px;
-  transition: border-color 0.15s;
-}
-
-.download-manager__item:hover {
-  border-color: var(--primary);
-}
-
-.download-manager__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  border-radius: 10px;
+  padding: 10px 12px;
 }
 
 .download-manager__song-info {
@@ -78,8 +59,8 @@
 }
 
 .download-manager__song-name {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -89,7 +70,7 @@
 
 .download-manager__status {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -107,16 +88,16 @@
 }
 
 .download-manager__progress-bar {
-  height: 3px;
-  background: var(--border);
-  border-radius: 2px;
+  height: 4px;
+  background: color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 999px;
   overflow: hidden;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .download-manager__progress-fill {
   height: 100%;
-  background: var(--primary);
-  border-radius: 2px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 999px;
   transition: width 0.2s;
 }

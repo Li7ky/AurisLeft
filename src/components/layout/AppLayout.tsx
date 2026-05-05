@@ -1,5 +1,4 @@
 import { NavLink } from "react-router-dom";
-import { useLocation } from "react-router-dom";
 import PlayerBar from "../player/PlayerBar";
 import "./AppLayout.css";
 
@@ -13,31 +12,23 @@ const NAV_ITEMS = [
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-
-  const isActive = (path: string) => {
-    if (path === "/home") {
-      return location.pathname === "/" || location.pathname === "/home";
-    }
-    return location.pathname === path;
-  };
-
   return (
     <div className="app-layout">
       <aside className="app-layout__sidebar">
         <div className="app-layout__sidebar-top">
           <div className="app-layout__logo">
             <span className="app-layout__logo-icon">🎧</span>
-            <span className="app-layout__logo-text">Music Player</span>
+            <span className="app-layout__logo-text">左耳</span>
           </div>
           <nav className="app-layout__nav">
             {NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
-                className={`app-layout__nav-link${
-                  isActive(item.to) ? " app-layout__nav-link--active" : ""
-                }`}
+                className={({ isActive }) =>
+                  `app-layout__nav-link${isActive ? " app-layout__nav-link--active" : ""}`
+                }
+                end={item.to === "/home"}
               >
                 <span className="app-layout__nav-icon">{item.icon}</span>
                 <span className="app-layout__nav-label">{item.label}</span>
