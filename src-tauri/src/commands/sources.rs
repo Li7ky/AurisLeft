@@ -119,6 +119,8 @@ pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<So
     
     eprintln!("[DEBUG] 找到 {} 个音源配置", sources_array.len());
     
+    // 直接返回配置信息，不下载和注册 JS 代码
+    // 避免 QuickJS GC 问题
     let mut loaded = Vec::new();
     
     for source in sources_array.iter() {
@@ -128,20 +130,15 @@ pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<So
             source.get("enabled").and_then(|v| v.as_bool())
         ) {
             if enabled {
-                eprintln!("[DEBUG] 加载音源：{} from {}", name, url);
-                
-                match state.http.get(&url, None).await {
-                    Ok(code) => {
-                        match state.source_mgr.register_js_source(code).await {
-                            Ok(info) => {
-                                eprintln!("[DEBUG] 音源注册成功：{}", info.name);
-                                loaded.push(info);
-                            }
-                            Err(e) => eprintln!("[DEBUG] 音源注册失败：{:?}", e),
-                        }
-                    }
-                    Err(e) => eprintln!("[DEBUG] 下载音源失败：{:?}", e),
-                }
+                eprintln!("[DEBUG] 配置文件中的音源：{} from {}", name, url);
+                // 先注册一个简单的 JSON 音源占位符，代替 JS 下载
+                // TODO: 后续修复 QuickJS 兼容性
+                let info = state.source_mgr.register_json_source(
+                    name,
+                    url,
+                    Default::default()
+                ).await?;
+                loaded.push(info);
             }
         }
     }
