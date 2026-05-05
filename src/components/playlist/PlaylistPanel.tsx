@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useDrag, useDrop } from "react-dnd";
 import { usePlaylistStore } from "../../store/playlistStore";
 import { usePlayerStore } from "../../store/playerStore";
 import type { Playlist, PlaylistSong } from "../../types";
@@ -14,13 +15,29 @@ function formatDuration(seconds: number | null): string {
 
 interface SongRowProps {
   song: PlaylistSong;
+  index: number;
   onContextMenu: (e: React.MouseEvent, song: PlaylistSong) => void;
+  moveRow: (fromIndex: number, toIndex: number) => void;
 }
 
-function SongRow({ song, onContextMenu }: SongRowProps) {
+function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
   const play = usePlayerStore((s) => s.play);
-  const songs = usePlaylistStore((s) => s.songs);
-  const index = songs.findIndex((s) => s.id === song.id);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: "playlist-song",
+    item: { index },
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  });
+
+  const [, drop] = useDrop({
+    accept: "playlist-song",
+    hover: (draggedItem: { index: number }) => {
+      if (draggedItem.index !== index) {
+        moveRow(draggedItem.index, index);
+        draggedItem.index = index;
+      }
+    },
+  });
 
   const handlePlay = () => {
     const quality = Quality.K320;
@@ -41,7 +58,16 @@ function SongRow({ song, onContextMenu }: SongRowProps) {
   };
 
   return (
-    <div className="playlist-panel__row" onClick={handlePlay} onContextMenu={(e) => onContextMenu(e, song)}>
+    <div
+      ref={
+        ((node: HTMLDivElement | null) => {
+          drag(drop(node));
+        }) as React.Ref<HTMLDivElement>
+      }
+      className={`playlist-panel__row${isDragging ? " playlist-panel__row--dragging" : ""}`}
+      onClick={handlePlay}
+      onContextMenu={(e) => onContextMenu(e, song)}
+    >
       <div className="playlist-panel__index">{index + 1}</div>
       <div className="playlist-panel__name" title={song.name}>{song.name}</div>
       <div className="playlist-panel__artist" title={song.artist}>{song.artist}</div>
@@ -116,6 +142,7 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
   const loading = usePlaylistStore((s) => s.loading);
   const removeSong = usePlaylistStore((s) => s.removeSong);
   const loadSongs = usePlaylistStore((s) => s.loadSongs);
+  const reorderSongs = usePlaylistStore((s) => s.reorderSongs);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; song: PlaylistSong } | null>(null);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState<PlaylistSong | null>(null);
 
@@ -145,6 +172,12 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
   };
 
   const closeContextMenu = () => setContextMenu(null);
+
+  const moveRow = useCallback((fromIndex: number, toIndex: number) => {
+    if (playlist) {
+      reorderSongs(playlist.id, fromIndex, toIndex);
+    }
+  }, [playlist, reorderSongs]);
 
   if (!playlist) {
     return (
@@ -178,8 +211,8 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
         <div className="playlist-panel__empty">该列表暂无歌曲</div>
       ) : (
         <div className="playlist-panel__list">
-          {songs.map((song) => (
-            <SongRow key={song.id} song={song} onContextMenu={handleContextMenu} />
+          {songs.map((song, idx) => (
+            <SongRow key={song.id} song={song} index={idx} onContextMenu={handleContextMenu} moveRow={moveRow} />
           ))}
         </div>
       )}

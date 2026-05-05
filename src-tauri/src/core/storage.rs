@@ -338,4 +338,36 @@ impl Database {
         let json = serde_json::to_string_pretty(&songs).map_err(|e| AppError::InvalidFormat(e.to_string()))?;
         Ok(json)
     }
+
+    /// Add a local music directory to scan list
+    pub fn add_local_music_dir(&mut self, dir_path: &str) -> Result<()> {
+        let mut dirs = self.get_local_music_dirs()?;
+        if !dirs.contains(&dir_path.to_string()) {
+            dirs.push(dir_path.to_string());
+            let value = serde_json::json!(dirs);
+            self.save_setting("local_music_dirs", &value)?;
+        }
+        Ok(())
+    }
+
+    /// Remove a local music directory from scan list
+    pub fn remove_local_music_dir(&mut self, dir_path: &str) -> Result<()> {
+        let mut dirs = self.get_local_music_dirs()?;
+        dirs.retain(|d| d != dir_path);
+        let value = serde_json::json!(dirs);
+        self.save_setting("local_music_dirs", &value)?;
+        Ok(())
+    }
+
+    /// Get list of local music directories
+    pub fn get_local_music_dirs(&self) -> Result<Vec<String>> {
+        match self.load_setting("local_music_dirs")? {
+            Some(value) => {
+                let dirs: Vec<String> = serde_json::from_value(value)
+                    .map_err(|e| AppError::InvalidFormat(e.to_string()))?;
+                Ok(dirs)
+            }
+            None => Ok(Vec::new()),
+        }
+    }
 }

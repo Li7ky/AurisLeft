@@ -31,6 +31,7 @@ interface PlaylistActions {
   loadSongs: (playlistId: number, toast?: ToastFn) => Promise<void>;
   importPlaylist: (filePath: string, format: string, toast?: ToastFn) => Promise<void>;
   exportPlaylist: (playlistId: number, toast?: ToastFn) => Promise<string>;
+  reorderSongs: (playlistId: number, fromIndex: number, toIndex: number, toast?: ToastFn) => void;
 }
 
 type PlaylistStore = PlaylistState & PlaylistActions;
@@ -145,5 +146,17 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
       toast?.(message, 'error');
       throw err;
     }
+  },
+
+  reorderSongs: (_playlistId: number, fromIndex: number, toIndex: number, toast?: ToastFn) => {
+    const { songs } = get();
+    if (fromIndex < 0 || fromIndex >= songs.length || toIndex < 0 || toIndex >= songs.length) return;
+    
+    const newSongs = [...songs];
+    const [movedSong] = newSongs.splice(fromIndex, 1);
+    newSongs.splice(toIndex, 0, movedSong);
+    
+    set({ songs: newSongs });
+    toast?.('歌曲顺序已调整', 'success');
   },
 }));

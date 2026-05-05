@@ -10,6 +10,7 @@ import type {
   AppSettings,
   Quality,
 } from "../types";
+import type { SleepTimerStatus } from "../types";
 
 export async function registerSource(path: string): Promise<SourceInfo> {
   return invoke<SourceInfo>("register_source", { path });
@@ -121,4 +122,51 @@ export async function loadSettings(): Promise<AppSettings> {
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
   return invoke("save_settings", { settings });
+}
+
+export async function scanLocalMusic(): Promise<{ filePath: string; title: string; artist: string; album: string; duration: number; fileSize: number; format: string }[]> {
+  return invoke("scan_local_music");
+}
+
+export async function playLocalFile(filePath: string): Promise<void> {
+  return invoke("play_local_file", { filePath });
+}
+
+export async function addLocalMusicDir(dirPath: string): Promise<void> {
+  return invoke("add_local_music_dir", { dirPath });
+}
+
+export async function removeLocalMusicDir(dirPath: string): Promise<void> {
+  return invoke("remove_local_music_dir", { dirPath });
+}
+
+export async function listLocalMusicDirs(): Promise<string[]> {
+  return invoke<string[]>("list_local_music_dirs");
+}
+
+export async function downloadSong(
+  song: Song,
+  quality: Quality,
+): Promise<string> {
+  return invoke<string>("download_song", { song, quality });
+}
+
+export async function getDownloadDir(): Promise<string> {
+  return invoke<string>("get_download_dir");
+}
+
+export async function setDownloadDir(dir: string): Promise<void> {
+  return invoke("set_download_dir", { dir });
+}
+
+export async function startSleepTimer(minutes: number): Promise<void> {
+  return invoke("start_sleep_timer", { minutes });
+}
+
+export async function cancelSleepTimer(): Promise<void> {
+  return invoke("cancel_sleep_timer");
+}
+
+export async function getSleepTimerStatus(): Promise<SleepTimerStatus> {
+  return invoke<SleepTimerStatus>("get_sleep_timer_status");
 }

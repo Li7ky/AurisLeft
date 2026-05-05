@@ -1,0 +1,10 @@
+.audio-visualizer {
+  display: block;
+  border-radius: 4px;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.audio-visualizer:hover {
+  opacity: 1;
+}

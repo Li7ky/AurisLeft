@@ -3,7 +3,7 @@
   background: var(--surface);
   border-top: 1px solid var(--border);
   display: grid;
-  grid-template-columns: 240px 1fr 200px;
+  grid-template-columns: 240px 1fr 240px;
   align-items: center;
   padding: 0 16px;
   gap: 8px;
@@ -176,4 +176,124 @@
 .player-bar__empty {
   color: var(--text-secondary);
   font-size: 13px;
+}
+
+.player-bar__timer-wrapper {
+  position: relative;
+}
+
+.player-bar__timer-btn {
+  padding: 4px 6px;
+  font-size: 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.player-bar__timer-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border);
+}
+
+.player-bar__timer-btn--active {
+  color: var(--primary);
+  animation: pulse-timer 2s infinite;
+}
+
+@keyframes pulse-timer {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.player-bar__timer-remaining {
+  font-size: 11px;
+  color: var(--primary);
+  font-weight: 600;
+  margin-left: 4px;
+  min-width: 32px;
+}
+
+.player-bar__timer-menu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 0;
+  min-width: 140px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.player-bar__timer-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.player-bar__timer-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+.player-bar__timer-menu-item--cancel {
+  color: var(--primary);
+}
+
+.player-bar__timer-menu-item--custom {
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+.player-bar__timer-custom {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  gap: 4px;
+}
+
+.player-bar__timer-custom-input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 13px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  width: 60px;
+}
+
+.player-bar__timer-custom-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.player-bar__timer-custom-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--primary);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.player-bar__timer-custom-btn:hover {
+  background: var(--accent);
 }

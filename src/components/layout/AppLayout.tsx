@@ -19,7 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-layout">
       <header className="app-layout__header">
-        <span className="app-layout__title">♫ Music Player</span>
+        <span className="app-layout__title">Music Player</span>
         <nav className="app-layout__nav">
           <NavLink
             to="/home"
@@ -38,6 +38,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             className={`app-layout__nav-link${isActive("/playlist") ? " app-layout__nav-link--active" : ""}`}
           >
             歌单
+          </NavLink>
+          <NavLink
+            to="/local"
+            className={`app-layout__nav-link${isActive("/local") ? " app-layout__nav-link--active" : ""}`}
+          >
+            本地音乐
+          </NavLink>
+          <NavLink
+            to="/download"
+            className={`app-layout__nav-link${isActive("/download") ? " app-layout__nav-link--active" : ""}`}
+          >
+            下载管理
           </NavLink>
           <NavLink
             to="/settings"

@@ -198,3 +198,15 @@ impl Default for AppSettings {
         }
     }
 }
+
+/// Local music file with metadata extracted from ID3 tags
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalSong {
+    pub file_path: String,
+    pub title: String,
+    pub artist: String,
+    pub album: String,
+    pub duration: u32,
+    pub file_size: u64,
+    pub format: String,
+}
