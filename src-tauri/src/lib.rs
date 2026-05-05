@@ -62,6 +62,11 @@ pub fn setup(app: &mut tauri::App) -> Result<()> {
         if let Ok(mut file) = std::fs::File::open(&sources_file) {
             let mut content = String::new();
             if let Ok(_) = file.read_to_string(&mut content) {
+                // 移除 BOM 字符
+                if content.starts_with('\u{FEFF}') {
+                    content = content[3..].to_string();
+                    eprintln!("[DEBUG] 已移除 BOM 字符");
+                }
                 eprintln!("[DEBUG] 配置文件内容：{}", content);
                 if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
                     if let Some(sources) = config.as_object().and_then(|o| o.get("sources")).and_then(|v| v.as_array()) {
@@ -74,23 +79,28 @@ pub fn setup(app: &mut tauri::App) -> Result<()> {
                             ) {
                                 eprintln!("[DEBUG] 处理音源：{} = {}, enabled={}", name, url, enabled);
                                 if enabled {
-                                    let http_clone = http.clone();
-                                    let mgr_clone = source_mgr.clone();
                                     let url_clone = url.to_string();
                                     let name_clone = name.to_string();
                                     
-                                    tokio::spawn(async move {
-                                        eprintln!("[DEBUG] 下载音源：{} from {}", name_clone, url_clone);
-                                        match http_clone.get(&url_clone, None).await {
-                                            Ok(code) => {
-                                                eprintln!("[DEBUG] 下载成功，注册音源：{}", name_clone);
-                                                match mgr_clone.register_js_source(code).await {
-                                                    Ok(info) => eprintln!("[DEBUG] 音源注册成功：{} ({})", info.name, info.id),
-                                                    Err(e) => eprintln!("[DEBUG] 音源注册失败：{:?}", e),
+                                    // 使用 std::thread 而不是 tokio::spawn
+                                    let http_clone = http.clone();
+                                    let mgr_clone = source_mgr.clone();
+                                    
+                                    std::thread::spawn(move || {
+                                        let rt = tokio::runtime::Runtime::new().unwrap();
+                                        rt.block_on(async move {
+                                            eprintln!("[DEBUG] 下载音源：{} from {}", name_clone, url_clone);
+                                            match http_clone.get(&url_clone, None).await {
+                                                Ok(code) => {
+                                                    eprintln!("[DEBUG] 下载成功，注册音源：{}", name_clone);
+                                                    match mgr_clone.register_js_source(code).await {
+                                                        Ok(info) => eprintln!("[DEBUG] 音源注册成功：{} ({})", info.name, info.id),
+                                                        Err(e) => eprintln!("[DEBUG] 音源注册失败：{:?}", e),
+                                                    }
                                                 }
+                                                Err(e) => eprintln!("[DEBUG] 下载失败：{:?}", e),
                                             }
-                                            Err(e) => eprintln!("[DEBUG] 下载失败：{:?}", e),
-                                        }
+                                        });
                                     });
                                 }
                             }
