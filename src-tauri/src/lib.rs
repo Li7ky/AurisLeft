@@ -56,69 +56,56 @@ pub fn setup(app: &mut tauri::App) -> Result<()> {
     // 启动时自动加载 sources.json 中的音源
     let sources_file = app_dir.join("sources.json");
     eprintln!("[DEBUG] 尝试加载音源配置文件：{:?}", sources_file);
-    eprintln!("[DEBUG] 配置文件是否存在：{}", sources_file.exists());
     
     if sources_file.exists() {
-        if let Ok(mut file) = std::fs::File::open(&sources_file) {
-            let mut content = String::new();
-            if let Ok(_) = file.read_to_string(&mut content) {
-                // 移除 BOM 字符
-                if content.starts_with('\u{FEFF}') {
-                    content = content[3..].to_string();
-                    eprintln!("[DEBUG] 已移除 BOM 字符");
-                }
-                eprintln!("[DEBUG] 配置文件内容：{}", content);
-                if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
-                    if let Some(sources) = config.as_object().and_then(|o| o.get("sources")).and_then(|v| v.as_array()) {
-                        eprintln!("[DEBUG] 找到 {} 个音源配置", sources.len());
-                        for source in sources {
-                            if let (Some(name), Some(url), Some(enabled)) = (
-                                source.get("name").and_then(|v| v.as_str()),
-                                source.get("url").and_then(|v| v.as_str()),
-                                source.get("enabled").and_then(|v| v.as_bool())
-                            ) {
-                                eprintln!("[DEBUG] 处理音源：{} = {}, enabled={}", name, url, enabled);
-                                if enabled {
-                                    let url_clone = url.to_string();
-                                    let name_clone = name.to_string();
-                                    
-                                    // 使用 std::thread 而不是 tokio::spawn
-                                    let http_clone = http.clone();
-                                    let mgr_clone = source_mgr.clone();
-                                    
-                                    std::thread::spawn(move || {
-                                        let rt = tokio::runtime::Runtime::new().unwrap();
-                                        rt.block_on(async move {
-                                            eprintln!("[DEBUG] 下载音源：{} from {}", name_clone, url_clone);
-                                            match http_clone.get(&url_clone, None).await {
+        let http_clone = http.clone();
+        let mgr_clone = source_mgr.clone();
+        
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            
+            if let Ok(mut file) = std::fs::File::open(&sources_file) {
+                let mut content = String::new();
+                if let Ok(_) = file.read_to_string(&mut content) {
+                    if content.starts_with('\u{FEFF}') {
+                        content = content[3..].to_string();
+                    }
+                    if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(sources_array) = config.get("sources").and_then(|v| v.as_array()) {
+                            let sources_clone: Vec<serde_json::Value> = sources_array.clone();
+                            
+                            let rt = tokio::runtime::Builder::new_current_thread()
+                                .enable_all()
+                                .build()
+                                .unwrap();
+                            
+                            rt.block_on(async move {
+                                for source in sources_clone.iter() {
+                                    if let (Some(name), Some(url), Some(enabled)) = (
+                                        source.get("name").and_then(|v| v.as_str()),
+                                        source.get("url").and_then(|v| v.as_str()),
+                                        source.get("enabled").and_then(|v| v.as_bool())
+                                    ) {
+                                        if enabled {
+                                            eprintln!("[DEBUG] 加载音源：{}", name);
+                                            match http_clone.get(&url, None).await {
                                                 Ok(code) => {
-                                                    eprintln!("[DEBUG] 下载成功，注册音源：{}", name_clone);
                                                     match mgr_clone.register_js_source(code).await {
-                                                        Ok(info) => eprintln!("[DEBUG] 音源注册成功：{} ({})", info.name, info.id),
+                                                        Ok(info) => eprintln!("[DEBUG] 音源注册成功：{}", info.name),
                                                         Err(e) => eprintln!("[DEBUG] 音源注册失败：{:?}", e),
                                                     }
                                                 }
-                                                Err(e) => eprintln!("[DEBUG] 下载失败：{:?}", e),
+                                                Err(e) => eprintln!("[DEBUG] 下载音源失败：{:?}", e),
                                             }
-                                        });
-                                    });
+                                        }
+                                    }
                                 }
-                            }
+                            });
                         }
-                    } else {
-                        eprintln!("[DEBUG] 配置文件中没有找到 sources 数组");
                     }
-                } else {
-                    eprintln!("[DEBUG] JSON 解析失败");
                 }
-            } else {
-                eprintln!("[DEBUG] 读取文件内容失败");
             }
-        } else {
-            eprintln!("[DEBUG] 打开文件失败");
-        }
-    } else {
-        eprintln!("[DEBUG] 配置文件不存在");
+        });
     }
     
     let audio = Arc::new(AudioEngine::new()?);
