@@ -1,36 +1,36 @@
 .search-results {
-  padding: var(--space-md) 0;
+  padding: var(--space-sm) 0 var(--space-xl);
 }
 
 .search-results__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-lg);
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: var(--space-md);
 }
 
-/* 歌曲卡片 */
 .song-card {
-  padding: var(--space-md);
+  padding: var(--space-sm);
   background: var(--bg-elevated);
   border-radius: var(--radius-md);
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast);
   cursor: pointer;
 }
 
 .song-card:hover {
   background: var(--bg-highlight);
+  transform: translateY(-2px);
 }
 
 .song-card--active {
-  background: var(--bg-highlight);
+  background: color-mix(in srgb, var(--essential-base) 16%, var(--bg-highlight));
 }
 
 .song-card__cover {
   position: relative;
   aspect-ratio: 1;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   overflow: hidden;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
   background: var(--decorative-subdued);
 }
 
@@ -48,13 +48,13 @@
 }
 
 .song-card__name {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   font-weight: 700;
   color: var(--text-base);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: var(--space-xs);
+  margin-bottom: 2px;
 }
 
 .song-card__artist {
@@ -65,37 +65,37 @@
   text-overflow: ellipsis;
 }
 
-/* 播放按钮 */
-.play-button {
+.song-card__play-button {
   position: absolute;
-  bottom: var(--space-sm);
   right: var(--space-sm);
-  width: 48px;
-  height: 48px;
+  bottom: var(--space-sm);
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: var(--essential-bright-accent);
-  color: var(--decorative-base);
+  background: var(--essential-base);
+  color: #000;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transform: translateY(8px);
-  transition: all var(--transition-fast);
+  transform: translateY(10px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
   cursor: pointer;
 }
 
-.song-card:hover .play-button {
+.song-card:hover .song-card__play-button {
   opacity: 1;
   transform: translateY(0);
 }
 
-.play-button:hover {
+.song-card__play-button:hover {
+  background: color-mix(in srgb, var(--essential-base) 85%, white);
   transform: translateY(0) scale(1.05);
 }
 
-.play-button:active {
+.song-card__play-button:active {
   transform: translateY(0) scale(0.95);
 }
 

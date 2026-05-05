@@ -2,18 +2,19 @@
   display: flex;
   height: 100%;
   width: 100%;
+  background: var(--background);
 }
 
 /* Sidebar */
 .app-layout__sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
-  background: var(--background);
+  background: var(--bg-press);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 16px 12px;
+  padding: var(--space-md) var(--space-sm);
   position: fixed;
   left: 0;
   top: 0;
@@ -30,8 +31,8 @@
 .app-layout__logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 8px;
+  gap: var(--space-sm);
+  padding: 0 var(--space-sm);
 }
 
 .app-layout__logo-icon {
@@ -40,39 +41,39 @@
 }
 
 .app-layout__logo-text {
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: 0.3px;
 }
 
 .app-layout__nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .app-layout__nav-link {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: 6px;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   text-decoration: none;
-  font-size: 13px;
-  font-weight: 500;
-  transition: color 0.15s, background-color 0.15s;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  transition: color var(--transition-normal), background-color var(--transition-normal);
 }
 
 .app-layout__nav-link:hover {
   color: var(--text-primary);
-  background: var(--surface-hover);
+  background: var(--bg-highlight);
 }
 
 .app-layout__nav-link--active {
   color: var(--text-primary);
-  background: var(--surface-hover);
+  background: var(--bg-highlight);
+  box-shadow: inset 3px 0 0 var(--essential-bright-accent);
 }
 
 .app-layout__nav-icon {
@@ -87,11 +88,11 @@
 }
 
 .app-layout__sidebar-bottom {
-  padding: 0 8px;
+  padding: 0 var(--space-sm);
 }
 
 .app-layout__user {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
 
@@ -99,7 +100,7 @@
 .app-layout__main {
   flex: 1;
   margin-left: var(--sidebar-width);
-  margin-bottom: var(--player-bar-height);
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -108,5 +109,6 @@
 .app-layout__content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: var(--space-md);
+  padding-bottom: calc(var(--player-bar-height) + var(--space-md));
 }

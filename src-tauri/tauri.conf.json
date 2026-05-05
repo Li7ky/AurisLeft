@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Music Player",
+  "productName": "左耳",
   "version": "0.1.0",
   "identifier": "com.musicplayer.desktop",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Music Player",
+        "title": "左耳",
         "width": 1200,
         "height": 800,
         "minWidth": 900,

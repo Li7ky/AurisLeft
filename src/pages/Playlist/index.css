@@ -1,10 +1,12 @@
 .playlist-page {
   display: flex;
   height: 100%;
+  gap: var(--space-md);
+  padding: var(--space-md);
 }
 
 .playlist-page__sidebar {
-  width: 200px;
+  width: 248px;
   flex-shrink: 0;
   height: 100%;
 }
@@ -13,4 +15,17 @@
   flex: 1;
   overflow: hidden;
   height: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .playlist-page {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .playlist-page__sidebar {
+    width: 100%;
+    height: auto;
+  }
 }

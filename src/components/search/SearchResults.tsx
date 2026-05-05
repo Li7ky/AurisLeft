@@ -26,7 +26,7 @@ function SongCard({ song }: { song: Song }) {
         ) : (
           <div className="song-card__cover-placeholder" />
         )}
-        <button className="play-button" onClick={handlePlay} aria-label="播放">
+        <button className="song-card__play-button" onClick={handlePlay} aria-label="播放">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <polygon points="8 5 19 12 8 19" />
           </svg>
