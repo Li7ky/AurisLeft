@@ -74,26 +74,25 @@ pub fn setup(app: &mut tauri::App) -> Result<()> {
 fn spawn_progress_poller(app: tauri::AppHandle) {
     let audio: Arc<AudioEngine> = app.state::<AppState>().inner().audio.clone();
 
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
-
-        loop {
-            interval.tick().await;
-
-            // Emit progress if playing
-            if audio.is_playing().await {
-                let (elapsed, total) = audio.get_progress_f64().await;
-                let _ = app.emit(
-                    "playback-progress",
-                    crate::core::audio::PlaybackProgress { elapsed, total },
-                );
+    // Use std::thread with a blocking runtime
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Handle::current();
+        rt.block_on(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+            loop {
+                interval.tick().await;
+                if audio.is_playing().await {
+                    let (elapsed, total) = audio.get_progress_f64().await;
+                    let _ = app.emit(
+                        "playback-progress",
+                        crate::core::audio::PlaybackProgress { elapsed, total },
+                    );
+                }
+                if audio.take_playback_ended() {
+                    let _ = app.emit("playback-ended", ());
+                }
             }
-
-            // Check for natural playback completion
-            if audio.take_playback_ended() {
-                let _ = app.emit("playback-ended", ());
-            }
-        }
+        });
     });
 }
 
