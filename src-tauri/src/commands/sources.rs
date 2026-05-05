@@ -1,15 +1,13 @@
 use tauri::State;
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use crate::AppState;
 use crate::core::error::Result;
 use crate::models::SourceInfo;
 use std::io::Read;
 
-fn sources_loaded_flag() -> &'static Mutex<bool> {
-    static FLAG: OnceLock<Mutex<bool>> = OnceLock::new();
-    FLAG.get_or_init(|| Mutex::new(false))
-}
+// 0 = idle, 1 = loading, 2 = loaded
+static SOURCE_LOAD_STATE: AtomicU8 = AtomicU8::new(0);
 
 #[tauri::command]
 pub async fn register_source(
@@ -125,14 +123,21 @@ pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<So
     
     eprintln!("[DEBUG] 找到 {} 个音源配置", sources_array.len());
     
-    let already_loaded = {
-        let loaded_guard = sources_loaded_flag().lock().map_err(|_| {
-            crate::core::error::AppError::SourceError("Sources lock poisoned".to_string())
-        })?;
-        *loaded_guard
-    };
-    if already_loaded {
+    let load_state = SOURCE_LOAD_STATE.load(Ordering::SeqCst);
+    if load_state == 1 {
+        eprintln!("[DEBUG] 音源正在加载，跳过重复加载");
+        return Ok(state.source_mgr.list_sources().await);
+    }
+    if load_state == 2 {
         eprintln!("[DEBUG] 音源已加载，跳过重复加载");
+        return Ok(state.source_mgr.list_sources().await);
+    }
+
+    if SOURCE_LOAD_STATE
+        .compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        eprintln!("[DEBUG] 音源加载状态竞争，跳过本次加载");
         return Ok(state.source_mgr.list_sources().await);
     }
 
@@ -163,10 +168,11 @@ pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<So
         }
     }
 
-    if !loaded.is_empty() {
-        if let Ok(mut loaded_guard) = sources_loaded_flag().lock() {
-            *loaded_guard = true;
-        }
+    if loaded.is_empty() {
+        // 加载失败时允许后续重试
+        SOURCE_LOAD_STATE.store(0, Ordering::SeqCst);
+    } else {
+        SOURCE_LOAD_STATE.store(2, Ordering::SeqCst);
     }
     
     Ok(loaded)
