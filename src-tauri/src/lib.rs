@@ -53,61 +53,6 @@ pub fn setup(app: &mut tauri::App) -> Result<()> {
     let cache = HttpCache::new(1800, 500);
     let source_mgr = Arc::new(SourceManager::new(http.clone()));
     
-    // 启动时自动加载 sources.json 中的音源
-    let sources_file = app_dir.join("sources.json");
-    eprintln!("[DEBUG] 尝试加载音源配置文件：{:?}", sources_file);
-    
-    if sources_file.exists() {
-        let http_clone = http.clone();
-        let mgr_clone = source_mgr.clone();
-        
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(500));
-            
-            if let Ok(mut file) = std::fs::File::open(&sources_file) {
-                let mut content = String::new();
-                if let Ok(_) = file.read_to_string(&mut content) {
-                    if content.starts_with('\u{FEFF}') {
-                        content = content[3..].to_string();
-                    }
-                    if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
-                        if let Some(sources_array) = config.get("sources").and_then(|v| v.as_array()) {
-                            let sources_clone: Vec<serde_json::Value> = sources_array.clone();
-                            
-                            let rt = tokio::runtime::Builder::new_current_thread()
-                                .enable_all()
-                                .build()
-                                .unwrap();
-                            
-                            rt.block_on(async move {
-                                for source in sources_clone.iter() {
-                                    if let (Some(name), Some(url), Some(enabled)) = (
-                                        source.get("name").and_then(|v| v.as_str()),
-                                        source.get("url").and_then(|v| v.as_str()),
-                                        source.get("enabled").and_then(|v| v.as_bool())
-                                    ) {
-                                        if enabled {
-                                            eprintln!("[DEBUG] 加载音源：{}", name);
-                                            match http_clone.get(&url, None).await {
-                                                Ok(code) => {
-                                                    match mgr_clone.register_js_source(code).await {
-                                                        Ok(info) => eprintln!("[DEBUG] 音源注册成功：{}", info.name),
-                                                        Err(e) => eprintln!("[DEBUG] 音源注册失败：{:?}", e),
-                                                    }
-                                                }
-                                                Err(e) => eprintln!("[DEBUG] 下载音源失败：{:?}", e),
-                                            }
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                    }
-                }
-            }
-        });
-    }
-    
     let audio = Arc::new(AudioEngine::new()?);
     let downloader = DownloadManager::new(download_dir);
     let sleep_timer = SleepTimer::new();
@@ -197,6 +142,7 @@ pub fn run() {
             commands::sources::list_sources,
             commands::sources::toggle_source,
             commands::sources::remove_source,
+            commands::sources::load_sources_from_file,
             commands::search::search_music,
             commands::player::play_song,
             commands::player::pause_playback,
