@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import AppLayout from "./components/layout/AppLayout";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { ToastProvider } from "./components/common/Toast";
@@ -11,6 +13,12 @@ import LocalMusic from "./pages/LocalMusic";
 import "./styles/global.css";
 
 function App() {
+  useEffect(() => {
+    void invoke("load_sources_from_file").catch((err) => {
+      console.error("[App] load_sources_from_file failed", err);
+    });
+  }, []);
+
   return (
     <ErrorBoundary>
       <ToastProvider>

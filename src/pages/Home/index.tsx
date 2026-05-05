@@ -3,6 +3,7 @@ import { usePlaylistStore } from "../../store/playlistStore";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PlaybackState } from "../../types";
+import LyricDisplay from "../../components/lyric/LyricDisplay";
 import "./index.css";
 
 export default function Home() {

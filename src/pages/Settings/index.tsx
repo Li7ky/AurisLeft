@@ -61,12 +61,11 @@ export default function Settings() {
   const [customColor, setCustomColor] = useState(theme.primary);
   const [loadedSources, setLoadedSources] = useState<SourceInfo[]>([]);
 
-  // 应用启动时自动加载音源
+  // 设置页仅查询已加载音源，避免重复触发加载
   useEffect(() => {
-    const loadSources = async () => {
+    const refreshSources = async () => {
       try {
-        console.log("[Settings] 调用 load_sources_from_file");
-        const sources = await invoke<SourceInfo[]>("load_sources_from_file");
+        const sources = await invoke<SourceInfo[]>("list_sources");
         console.log("[Settings] 加载到的音源:", sources);
         setLoadedSources(sources);
       } catch (error) {
@@ -74,7 +73,7 @@ export default function Settings() {
       }
     };
 
-    loadSources();
+    refreshSources();
   }, []);
 
   const handleImportSource = async () => {
