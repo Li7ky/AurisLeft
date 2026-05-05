@@ -118,8 +118,8 @@ pub fn run() {
         .setup(|app| {
             setup(app).map_err(|e| tauri::Error::Anyhow(e.into()))?;
             
-            // 启动后台任务
-            spawn_progress_poller(app.handle().clone());
+            // Avoid starting async pollers during setup; runtime may not be ready yet.
+            // Progress updates are still available via explicit player commands/events.
             
             // 启动时加载音源
             load_sources_at_startup(app.handle());
