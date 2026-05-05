@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import AppLayout from "./components/layout/AppLayout";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { ToastProvider } from "./components/common/Toast";
@@ -11,6 +13,20 @@ import LocalMusic from "./pages/LocalMusic";
 import "./styles/global.css";
 
 function App() {
+  // 应用启动时自动加载音源
+  useEffect(() => {
+    const loadSources = async () => {
+      try {
+        console.log("[App] 启动时加载音源");
+        const sources = await invoke("load_sources_from_file");
+        console.log("[App] 音源加载成功:", sources);
+      } catch (error) {
+        console.error("[App] 音源加载失败:", error);
+      }
+    };
+    loadSources();
+  }, []);
+
   return (
     <ErrorBoundary>
       <ToastProvider>
