@@ -4,6 +4,11 @@ import { playSong, pausePlayback, resumePlayback, stopPlayback, seekTo, setVolum
 import type { Song } from "../types";
 import { PlaybackState, Quality } from "../types";
 
+interface PlaybackProgressEvent {
+  elapsed: number;
+  total: number;
+}
+
 interface PlayerState {
   currentSong: Song | null;
   queue: Song[];
@@ -154,15 +159,53 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 }));
 
-let progressListenerUnlisten: (() => void) | null = null;
+interface UnlistenFn {
+  (): void;
+}
+
+let eventUnlisteners: UnlistenFn[] = [];
 
 export function subscribePlayerEvents() {
-  if (progressListenerUnlisten) return;
+  if (eventUnlisteners.length > 0) return;
 
-  listen<number>("player-progress", (event) => {
-    const progress = event.payload;
-    usePlayerStore.getState().updateProgress(progress, usePlayerStore.getState().duration);
+  // Progress updates from backend
+  listen<PlaybackProgressEvent>("playback-progress", (event) => {
+    const { elapsed, total } = event.payload;
+    usePlayerStore.getState().updateProgress(elapsed, total);
   }).then((unlisten) => {
-    progressListenerUnlisten = unlisten;
+    eventUnlisteners.push(unlisten);
+  });
+
+  // Playback ended -> auto play next song
+  listen("playback-ended", () => {
+    usePlayerStore.getState().next();
+  }).then((unlisten) => {
+    eventUnlisteners.push(unlisten);
+  });
+
+  // Tray / hotkey: Play/Pause
+  listen("hotkey-play-pause", () => {
+    const { playbackState, pause, resume } = usePlayerStore.getState();
+    if (playbackState === PlaybackState.Playing) {
+      pause();
+    } else if (playbackState === PlaybackState.Paused) {
+      resume();
+    }
+  }).then((unlisten) => {
+    eventUnlisteners.push(unlisten);
+  });
+
+  // Tray / hotkey: Next
+  listen("hotkey-next", () => {
+    usePlayerStore.getState().next();
+  }).then((unlisten) => {
+    eventUnlisteners.push(unlisten);
+  });
+
+  // Tray / hotkey: Previous
+  listen("hotkey-prev", () => {
+    usePlayerStore.getState().prev();
+  }).then((unlisten) => {
+    eventUnlisteners.push(unlisten);
   });
 }

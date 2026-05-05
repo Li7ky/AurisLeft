@@ -14,22 +14,28 @@
   margin-top: 40px;
 }
 
-.lyric-display__line {
+.lyric-line {
   padding: 12px 24px;
   font-size: 15px;
   color: var(--text-secondary);
   transition: all 0.3s ease;
+  transform-origin: center;
   cursor: pointer;
   border-radius: 4px;
   white-space: nowrap;
+  opacity: 0.5;
+  transform: scale(0.95);
 }
 
-.lyric-display__line:hover {
+.lyric-line:hover {
   color: var(--text-primary);
+  opacity: 0.8;
 }
 
-.lyric-display__line--active {
-  color: var(--text-primary);
+.lyric-line--active {
+  color: var(--accent);
   font-size: 20px;
-  font-weight: 500;
+  font-weight: bold;
+  opacity: 1;
+  transform: scale(1.1);
 }

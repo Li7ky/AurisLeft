@@ -11,19 +11,31 @@ export default function LyricDisplay({ lines }: LyricDisplayProps) {
   const progress = usePlayerStore((s) => s.progress);
   const seek = usePlayerStore((s) => s.seek);
   const containerRef = useRef<HTMLDivElement>(null);
+  const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const activeIndex = findActiveLineIndex(lines, progress);
 
-  const activeRef = useRef<HTMLDivElement>(null);
+  const setLineRef = useCallback((index: number, el: HTMLDivElement | null) => {
+    if (el) {
+      lineRefs.current.set(index, el);
+    } else {
+      lineRefs.current.delete(index);
+    }
+  }, []);
 
   useEffect(() => {
-    if (activeRef.current && containerRef.current) {
-      const container = containerRef.current;
-      const el = activeRef.current;
-      const containerHeight = container.clientHeight;
-      const elOffset = el.offsetTop - container.offsetTop;
-      container.scrollTop = elOffset - containerHeight / 2;
-    }
+    const container = containerRef.current;
+    const lineEl = lineRefs.current.get(activeIndex);
+    if (!container || !lineEl) return;
+
+    const containerHeight = container.clientHeight;
+    const lineOffsetTop = lineEl.offsetTop;
+    const targetScroll = lineOffsetTop - containerHeight / 2 + lineEl.clientHeight / 2;
+
+    container.scrollTo({
+      top: targetScroll,
+      behavior: "smooth",
+    });
   }, [activeIndex]);
 
   const handleLineClick = useCallback(
@@ -46,8 +58,8 @@ export default function LyricDisplay({ lines }: LyricDisplayProps) {
       {lines.map((line, i) => (
         <div
           key={`${line.time}-${i}`}
-          ref={i === activeIndex ? activeRef : undefined}
-          className={`lyric-display__line${i === activeIndex ? " lyric-display__line--active" : ""}`}
+          ref={(el) => setLineRef(i, el)}
+          className={`lyric-line${i === activeIndex ? " lyric-line--active" : ""}`}
           onClick={() => handleLineClick(line.time)}
         >
           {line.text || "\u00A0"}

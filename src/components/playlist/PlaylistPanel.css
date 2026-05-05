@@ -59,6 +59,11 @@
   background: var(--surface-hover);
 }
 
+.playlist-panel__row--dragging {
+  opacity: 0.5;
+  background: var(--surface-hover);
+}
+
 .playlist-panel__index {
   color: var(--text-secondary);
   font-size: 12px;

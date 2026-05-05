@@ -24,6 +24,12 @@ export enum RepeatMode {
   All = 'all',
 }
 
+export enum DownloadStatus {
+  Downloading = 'downloading',
+  Completed = 'completed',
+  Failed = 'failed',
+}
+
 export interface SourceInfo {
   id: string;
   name: string;
@@ -64,6 +70,39 @@ export interface Lyric {
   metadata: LyricMetadata | null;
 }
 
+export interface DownloadTask {
+  url: string;
+  songName: string;
+  progress: number;
+  status: DownloadStatus;
+  error?: string;
+}
+
+export interface PlayerSettings {
+  defaultQuality: Quality;
+  autoPlayNext: boolean;
+  volume: number;
+  shuffle: boolean;
+  repeatMode: RepeatMode;
+}
+
+export interface AppearanceSettings {
+  theme: ThemeConfig;
+  showLyric: boolean;
+}
+
+export interface SourceSettings {
+  timeoutMs: number;
+  failThreshold: number;
+  cacheDurationMinutes: number;
+}
+
+export interface AppSettings {
+  player: PlayerSettings;
+  appearance: AppearanceSettings;
+  sources: SourceSettings;
+}
+
 export interface Playlist {
   id: number;
   name: string;
@@ -102,34 +141,24 @@ export interface ThemeConfig {
   accent: string;
 }
 
-export interface PlayerSettings {
-  defaultQuality: Quality;
-  autoPlayNext: boolean;
-  volume: number;
-  shuffle: boolean;
-  repeatMode: RepeatMode;
-}
-
-export interface AppearanceSettings {
-  theme: ThemeConfig;
-  showLyric: boolean;
-}
-
-export interface SourceSettings {
-  timeoutMs: number;
-  failThreshold: number;
-  cacheDurationMinutes: number;
-}
-
-export interface AppSettings {
-  player: PlayerSettings;
-  appearance: AppearanceSettings;
-  sources: SourceSettings;
-}
-
 export interface TrackInfo {
   song: Song;
   quality: Quality;
   url: string;
   duration: number;
+}
+
+export interface LocalSong {
+  filePath: string;
+  title: string;
+  artist: string;
+  album: string;
+  duration: number;
+  fileSize: number;
+  format: string;
+}
+
+export interface SleepTimerStatus {
+  isActive: boolean;
+  remainingSeconds: number;
 }
