@@ -74,79 +74,95 @@ pub fn setup(app: &mut tauri::App) -> Result<()> {
 fn spawn_progress_poller(app: tauri::AppHandle) {
     let audio: Arc<AudioEngine> = app.state::<AppState>().inner().audio.clone();
 
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
-        loop {
-            interval.tick().await;
-            if audio.is_playing().await {
-                let (elapsed, total) = audio.get_progress_f64().await;
-                let _ = app.emit(
-                    "playback-progress",
-                    crate::core::audio::PlaybackProgress { elapsed, total },
-                );
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+            loop {
+                interval.tick().await;
+                if audio.is_playing().await {
+                    let (elapsed, total) = audio.get_progress_f64().await;
+                    let _ = app.emit(
+                        "playback-progress",
+                        crate::core::audio::PlaybackProgress { elapsed, total },
+                    );
+                }
+                if audio.take_playback_ended() {
+                    let _ = app.emit("playback-ended", ());
+                }
             }
-            if audio.take_playback_ended() {
-                let _ = app.emit("playback-ended", ());
-            }
-        }
+        });
     });
 }
 
 /// Load music sources from sources.json at startup
 fn load_sources_at_startup(app_handle: &tauri::AppHandle) {
     let app_handle = app_handle.clone();
-    tokio::spawn(async move {
-        use std::io::Read;
+    
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(200));
         
-        let state = app_handle.state::<AppState>();
-        let app_dir = &state.app_dir;
-        let sources_file = app_dir.join("sources.json");
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         
-        eprintln!("[DEBUG] 尝试加载音源配置文件：{:?}", sources_file);
-        
-        if !sources_file.exists() {
-            eprintln!("[DEBUG] 配置文件不存在");
-            return;
-        }
-        
-        let mut content = String::new();
-        if let Ok(mut file) = std::fs::File::open(&sources_file) {
-            let _ = file.read_to_string(&mut content);
-        } else {
-            eprintln!("[DEBUG] 打开文件失败");
-            return;
-        }
-        
-        if content.starts_with('\u{FEFF}') {
-            content = content[3..].to_string();
-        }
-        
-        if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(sources_array) = config.get("sources").and_then(|v| v.as_array()) {
-                eprintln!("[DEBUG] 找到 {} 个音源配置", sources_array.len());
-                
-                for source in sources_array.iter() {
-                    if let (Some(name), Some(url), Some(enabled)) = (
-                        source.get("name").and_then(|v| v.as_str()),
-                        source.get("url").and_then(|v| v.as_str()),
-                        source.get("enabled").and_then(|v| v.as_bool())
-                    ) {
-                        if enabled {
-                            eprintln!("[DEBUG] 加载音源：{} from {}", name, url);
-                            match state.http.get(&url, None).await {
-                                Ok(code) => {
-                                    match state.source_mgr.register_js_source(code).await {
-                                        Ok(info) => eprintln!("[DEBUG] 音源注册成功：{}", info.name),
-                                        Err(e) => eprintln!("[DEBUG] 音源注册失败：{:?}", e),
+        rt.block_on(async move {
+            use std::io::Read;
+            
+            let state = app_handle.state::<AppState>();
+            let app_dir = &state.app_dir;
+            let sources_file = app_dir.join("sources.json");
+            
+            eprintln!("[DEBUG] 尝试加载音源配置文件：{:?}", sources_file);
+            
+            if !sources_file.exists() {
+                eprintln!("[DEBUG] 配置文件不存在");
+                return;
+            }
+            
+            let mut content = String::new();
+            if let Ok(mut file) = std::fs::File::open(&sources_file) {
+                let _ = file.read_to_string(&mut content);
+            } else {
+                eprintln!("[DEBUG] 打开文件失败");
+                return;
+            }
+            
+            if content.starts_with('\u{FEFF}') {
+                content = content[3..].to_string();
+            }
+            
+            if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(sources_array) = config.get("sources").and_then(|v| v.as_array()) {
+                    eprintln!("[DEBUG] 找到 {} 个音源配置", sources_array.len());
+                    
+                    for source in sources_array.iter() {
+                        if let (Some(name), Some(url), Some(enabled)) = (
+                            source.get("name").and_then(|v| v.as_str()),
+                            source.get("url").and_then(|v| v.as_str()),
+                            source.get("enabled").and_then(|v| v.as_bool())
+                        ) {
+                            if enabled {
+                                eprintln!("[DEBUG] 加载音源：{} from {}", name, url);
+                                match state.http.get(&url, None).await {
+                                    Ok(code) => {
+                                        match state.source_mgr.register_js_source(code).await {
+                                            Ok(info) => eprintln!("[DEBUG] 音源注册成功：{}", info.name),
+                                            Err(e) => eprintln!("[DEBUG] 音源注册失败：{:?}", e),
+                                        }
                                     }
+                                    Err(e) => eprintln!("[DEBUG] 下载音源失败：{:?}", e),
                                 }
-                                Err(e) => eprintln!("[DEBUG] 下载音源失败：{:?}", e),
                             }
                         }
                     }
                 }
             }
-        }
+        });
     });
 }
 
