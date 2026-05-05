@@ -3,6 +3,7 @@ use tauri::State;
 use crate::AppState;
 use crate::core::error::Result;
 use crate::models::SourceInfo;
+use std::io::Read;
 
 #[tauri::command]
 pub async fn register_source(
@@ -71,4 +72,79 @@ pub async fn remove_source(
     source_id: String,
 ) -> Result<()> {
     state.source_mgr.remove_source(&source_id).await
+}
+
+#[tauri::command]
+pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<SourceInfo>> {
+    use std::fs;
+    
+    let app_dir = &state.app_dir;
+    let sources_file = app_dir.join("sources.json");
+    
+    eprintln!("[DEBUG] load_sources_from_file: {:?}", sources_file);
+    
+    if !sources_file.exists() {
+        eprintln!("[DEBUG] 配置文件不存在");
+        return Ok(vec![]);
+    }
+    
+    let mut content = String::new();
+    if let Ok(mut file) = fs::File::open(&sources_file) {
+        let _ = file.read_to_string(&mut content);
+    } else {
+        eprintln!("[DEBUG] 打开文件失败");
+        return Ok(vec![]);
+    }
+    
+    // 移除 BOM
+    if content.starts_with('\u{FEFF}') {
+        content = content[3..].to_string();
+    }
+    
+    let config: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("[DEBUG] JSON 解析失败：{:?}", e);
+            return Ok(vec![]);
+        }
+    };
+    
+    let sources_array = match config.get("sources").and_then(|v| v.as_array()) {
+        Some(arr) => arr,
+        None => {
+            eprintln!("[DEBUG] 没有找到 sources 数组");
+            return Ok(vec![]);
+        }
+    };
+    
+    eprintln!("[DEBUG] 找到 {} 个音源配置", sources_array.len());
+    
+    let mut loaded = Vec::new();
+    
+    for source in sources_array.iter() {
+        if let (Some(name), Some(url), Some(enabled)) = (
+            source.get("name").and_then(|v| v.as_str()),
+            source.get("url").and_then(|v| v.as_str()),
+            source.get("enabled").and_then(|v| v.as_bool())
+        ) {
+            if enabled {
+                eprintln!("[DEBUG] 加载音源：{} from {}", name, url);
+                
+                match state.http.get(&url, None).await {
+                    Ok(code) => {
+                        match state.source_mgr.register_js_source(code).await {
+                            Ok(info) => {
+                                eprintln!("[DEBUG] 音源注册成功：{}", info.name);
+                                loaded.push(info);
+                            }
+                            Err(e) => eprintln!("[DEBUG] 音源注册失败：{:?}", e),
+                        }
+                    }
+                    Err(e) => eprintln!("[DEBUG] 下载音源失败：{:?}", e),
+                }
+            }
+        }
+    }
+    
+    Ok(loaded)
 }

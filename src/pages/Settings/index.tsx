@@ -1,8 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../../store/settingsStore";
 import { Quality } from "../../types";
 import type { ThemeConfig } from "../../types";
 import "./index.css";
+
+interface SourceInfo {
+  id: string;
+  name: string;
+  version: string;
+  enabled: boolean;
+}
 
 const PRESET_THEMES: { name: string; theme: ThemeConfig }[] = [
   {
@@ -51,6 +59,23 @@ export default function Settings() {
   } = useSettingsStore();
 
   const [customColor, setCustomColor] = useState(theme.primary);
+  const [loadedSources, setLoadedSources] = useState<SourceInfo[]>([]);
+
+  // 应用启动时自动加载音源
+  useEffect(() => {
+    const loadSources = async () => {
+      try {
+        console.log("[Settings] 调用 load_sources_from_file");
+        const sources = await invoke<SourceInfo[]>("load_sources_from_file");
+        console.log("[Settings] 加载到的音源:", sources);
+        setLoadedSources(sources);
+      } catch (error) {
+        console.error("[Settings] 加载音源失败:", error);
+      }
+    };
+
+    loadSources();
+  }, []);
 
   const handleImportSource = async () => {
     console.log("Import source triggered - file dialog would open here");
@@ -88,11 +113,29 @@ export default function Settings() {
         <div className="settings-group-card__header">
           <h3 className="settings-group-card__title">音源管理</h3>
         </div>
-        <div className="settings-group-card__body">
-          <div className="settings-row">
+          <div className="settings-group-card__body">
             <button onClick={handleImportSource} className="settings-btn settings-btn--primary">
               导入音源
             </button>
+            <div className="settings-note">当前已加载音源：{loadedSources.length} 个</div>
+            {loadedSources.length > 0 && (
+              <div className="settings-source-list" style={{ marginTop: "10px" }}>
+                {loadedSources.map((source) => (
+                  <div key={source.id} className="settings-source-item" style={{
+                    padding: "8px 12px",
+                    background: "rgba(255,255,255,0.05)",
+                    borderRadius: "4px",
+                    marginBottom: "6px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
+                    <span style={{ color: "#fff" }}>{source.name}</span>
+                    <span style={{ fontSize: "12px", color: "#1DB954" }}>已启用</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="settings-note">当前已加载音源: 0 个</div>
         </div>
