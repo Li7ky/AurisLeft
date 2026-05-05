@@ -1,9 +1,15 @@
 use tauri::State;
+use std::sync::{Mutex, OnceLock};
 
 use crate::AppState;
 use crate::core::error::Result;
 use crate::models::SourceInfo;
 use std::io::Read;
+
+fn sources_loaded_flag() -> &'static Mutex<bool> {
+    static FLAG: OnceLock<Mutex<bool>> = OnceLock::new();
+    FLAG.get_or_init(|| Mutex::new(false))
+}
 
 #[tauri::command]
 pub async fn register_source(
@@ -119,8 +125,17 @@ pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<So
     
     eprintln!("[DEBUG] 找到 {} 个音源配置", sources_array.len());
     
-    // 直接返回配置信息，不下载和注册 JS 代码
-    // 避免 QuickJS GC 问题
+    let already_loaded = {
+        let loaded_guard = sources_loaded_flag().lock().map_err(|_| {
+            crate::core::error::AppError::SourceError("Sources lock poisoned".to_string())
+        })?;
+        *loaded_guard
+    };
+    if already_loaded {
+        eprintln!("[DEBUG] 音源已加载，跳过重复加载");
+        return Ok(state.source_mgr.list_sources().await);
+    }
+
     let mut loaded = Vec::new();
     
     for source in sources_array.iter() {
@@ -130,16 +145,27 @@ pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<So
             source.get("enabled").and_then(|v| v.as_bool())
         ) {
             if enabled {
-                eprintln!("[DEBUG] 配置文件中的音源：{} from {}", name, url);
-                // 先注册一个简单的 JSON 音源占位符，代替 JS 下载
-                // TODO: 后续修复 QuickJS 兼容性
-                let info = state.source_mgr.register_json_source(
-                    name,
-                    url,
-                    Default::default()
-                ).await?;
-                loaded.push(info);
+                eprintln!("[DEBUG] 加载 JS 音源：{} from {}", name, url);
+                match state.http.get(url, None).await {
+                    Ok(code) => {
+                        match state.source_mgr.register_js_source(code).await {
+                            Ok(info) => loaded.push(info),
+                            Err(err) => {
+                                eprintln!("[DEBUG] 注册 JS 音源失败 {}: {}", name, err);
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        eprintln!("[DEBUG] 下载 JS 音源失败 {}: {}", name, err);
+                    }
+                }
             }
+        }
+    }
+
+    if !loaded.is_empty() {
+        if let Ok(mut loaded_guard) = sources_loaded_flag().lock() {
+            *loaded_guard = true;
         }
     }
     
