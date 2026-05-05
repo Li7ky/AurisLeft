@@ -11,6 +11,7 @@ import LocalMusic from "./pages/LocalMusic";
 import "./styles/global.css";
 
 function App() {
+  return (
     <ErrorBoundary>
       <ToastProvider>
         <HashRouter>
