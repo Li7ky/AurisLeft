@@ -2,139 +2,300 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
+  padding: var(--space-xl);
+  overflow-y: auto;
 }
 
+/* 头部区域 */
 .playlist-panel__header {
   display: flex;
+  align-items: flex-end;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.playlist-panel__header-cover {
+  width: 192px;
+  height: 192px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  box-shadow: 0 4px 60px rgba(0, 0, 0, 0.5);
+}
+
+.playlist-panel__header-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.playlist-panel__header-cover--placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+  justify-content: center;
+  background: var(--bg-elevated);
+  color: var(--text-subdued);
+}
+
+.playlist-panel__header-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.playlist-panel__label {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-base);
 }
 
 .playlist-panel__title {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--text-base);
+  line-height: var(--line-height-tight);
 }
 
-.playlist-panel__count {
-  font-size: 13px;
-  color: var(--text-secondary);
+.playlist-panel__meta {
+  font-size: var(--font-size-sm);
+  color: var(--text-subdued);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
+.playlist-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+/* 表头 */
 .playlist-panel__table-header {
   display: grid;
-  grid-template-columns: 40px 1fr 120px 140px 60px;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 4px;
+  grid-template-columns: 40px 4fr 3fr 60px 40px;
+  align-items: center;
+  padding: 0 var(--space-md);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: var(--space-xs);
 }
 
 .playlist-panel__th {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  color: var(--text-subdued);
   font-weight: 500;
+  text-align: left;
 }
 
+/* 列表 */
 .playlist-panel__list {
   flex: 1;
   overflow-y: auto;
 }
 
-.playlist-panel__row {
+/* 列表行 */
+.playlist-row {
   display: grid;
-  grid-template-columns: 40px 1fr 120px 140px 60px;
+  grid-template-columns: 40px 4fr 3fr 60px 40px;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 4px;
+  padding: 0 var(--space-md);
+  height: 56px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
   cursor: pointer;
-  font-size: 13px;
-  transition: background-color 0.15s;
+  font-size: var(--font-size-sm);
 }
 
-.playlist-panel__row:hover {
-  background: var(--surface-hover);
+.playlist-row:hover {
+  background: rgba(255, 255, 255, 0.07);
 }
 
-.playlist-panel__row--dragging {
+.playlist-row--active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.playlist-row--dragging {
   opacity: 0.5;
-  background: var(--surface-hover);
 }
 
-.playlist-panel__index {
-  color: var(--text-secondary);
-  font-size: 12px;
-  text-align: center;
+/* 序号列 */
+.playlist-row__index-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 
-.playlist-panel__name {
+.playlist-row__index {
+  color: var(--text-subdued);
+  font-size: var(--font-size-sm);
+}
+
+.playlist-row:hover .playlist-row__index {
+  display: none;
+}
+
+.playlist-row__play-icon {
+  display: none;
+  position: absolute;
+  background: transparent;
+  border: none;
+  color: var(--text-base);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.playlist-row:hover .playlist-row__play-icon {
+  display: flex;
+}
+
+/* 标题列 */
+.playlist-row__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.playlist-row__cover {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--decorative-subdued);
+}
+
+.playlist-row__cover--placeholder {
+  background: var(--decorative-subdued);
+}
+
+.playlist-row__title-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.playlist-row__name {
   font-weight: 500;
+  color: var(--text-base);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.playlist-panel__artist {
-  color: var(--text-secondary);
+.playlist-row__artist {
+  color: var(--text-subdued);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.playlist-panel__album {
-  color: var(--text-secondary);
+/* 专辑列 */
+.playlist-row__album {
+  color: var(--text-subdued);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.playlist-panel__duration {
-  color: var(--text-secondary);
+/* 时长列 */
+.playlist-row__duration {
+  color: var(--text-subdued);
   text-align: right;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
 }
 
+/* 操作列 */
+.playlist-row__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.playlist-row:hover .playlist-row__actions {
+  opacity: 1;
+}
+
+.playlist-row__more-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-subdued);
+  cursor: pointer;
+  padding: var(--space-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+}
+
+.playlist-row__more-btn:hover {
+  color: var(--text-base);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 加载与空状态 */
 .playlist-panel__loading {
   text-align: center;
-  color: var(--text-secondary);
-  padding: 40px;
+  color: var(--text-subdued);
+  padding: var(--space-xl);
 }
 
 .playlist-panel__empty {
   text-align: center;
-  color: var(--text-secondary);
-  padding: 40px;
+  color: var(--text-subdued);
+  padding: var(--space-xl);
 }
 
+/* 右键菜单 */
 .playlist-panel__context-menu {
   position: fixed;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   z-index: 1000;
-  min-width: 120px;
+  min-width: 160px;
 }
 
 .playlist-panel__context-item {
   display: block;
   width: 100%;
-  padding: 8px 16px;
+  padding: var(--space-sm) var(--space-md);
   text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-base);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
 }
 
 .playlist-panel__context-item:first-child {
-  color: var(--error);
+  color: var(--text-negative);
 }
 
 .playlist-panel__context-item:hover {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.1);
 }
 
+/* 对话框 */
 .playlist-panel__dialog-overlay {
   position: fixed;
   top: 0;
@@ -149,10 +310,10 @@
 }
 
 .playlist-panel__dialog {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 20px;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
   width: 360px;
   max-height: 400px;
   display: flex;
@@ -160,20 +321,21 @@
 }
 
 .playlist-panel__dialog-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 12px;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+  color: var(--text-base);
 }
 
 .playlist-panel__dialog-input {
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-md);
 }
 
 .playlist-panel__dialog-list {
   flex: 1;
   overflow-y: auto;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-md);
 }
 
 .playlist-panel__dialog-item {
@@ -181,28 +343,45 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 10px 12px;
+  padding: var(--space-sm) var(--space-md);
   text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-base);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
 }
 
 .playlist-panel__dialog-item:hover {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .playlist-panel__dialog-count {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  color: var(--text-subdued);
 }
 
 .playlist-panel__dialog-empty {
   text-align: center;
-  color: var(--text-secondary);
-  padding: 20px;
+  color: var(--text-subdued);
+  padding: var(--space-lg);
 }
 
 .playlist-panel__dialog-close {
   width: 100%;
-  padding: 8px;
-  background: var(--primary);
-  color: var(--background);
+  padding: var(--space-sm);
+  background: var(--essential-bright-accent);
+  color: var(--decorative-base);
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.playlist-panel__dialog-close:hover {
+  transform: scale(1.04);
 }

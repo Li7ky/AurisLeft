@@ -16,13 +16,13 @@ export default function Search() {
   return (
     <div className="search-page">
       <div className="search-page__header">
-        <h2 className="search-page__title">搜索音乐</h2>
+        <h1 className="search-page__title">搜索</h1>
         <SearchBar />
       </div>
 
       {keyword && (
-        <div className="search-page__progress">
-          <span className="search-page__keyword">关键词: {keyword}</span>
+        <div className="search-page__meta">
+          <span className="search-page__keyword">{keyword}</span>
           <span className="search-page__count">找到 {totalResults} 首歌曲</span>
           {loading && <span className="search-page__loading-indicator">搜索中...</span>}
           {!loading && totalResults > 0 && (

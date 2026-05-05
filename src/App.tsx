@@ -7,6 +7,7 @@ import Search from "./pages/Search";
 import Playlist from "./pages/Playlist";
 import Settings from "./pages/Settings";
 import DownloadManager from "./pages/DownloadManager";
+import LocalMusic from "./pages/LocalMusic";
 import "./styles/global.css";
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
               <Route path="/home" element={<Home />} />
               <Route path="/search" element={<Search />} />
               <Route path="/playlist" element={<Playlist />} />
+              <Route path="/local" element={<LocalMusic />} />
               <Route path="/download" element={<DownloadManager />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/" element={<Navigate to="/home" replace />} />

@@ -22,6 +22,8 @@ interface SongRowProps {
 
 function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
   const play = usePlayerStore((s) => s.play);
+  const currentSong = usePlayerStore((s) => s.currentSong);
+  const isActive = currentSong?.songId === song.songId && currentSong?.source === song.source;
 
   const [{ isDragging }, drag] = useDrag({
     type: "playlist-song",
@@ -64,15 +66,40 @@ function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
           drag(drop(node));
         }) as React.Ref<HTMLDivElement>
       }
-      className={`playlist-panel__row${isDragging ? " playlist-panel__row--dragging" : ""}`}
+      className={`playlist-row${isActive ? " playlist-row--active" : ""}${isDragging ? " playlist-row--dragging" : ""}`}
       onClick={handlePlay}
       onContextMenu={(e) => onContextMenu(e, song)}
     >
-      <div className="playlist-panel__index">{index + 1}</div>
-      <div className="playlist-panel__name" title={song.name}>{song.name}</div>
-      <div className="playlist-panel__artist" title={song.artist}>{song.artist}</div>
-      <div className="playlist-panel__album" title={song.album ?? "--"}>{song.album ?? "--"}</div>
-      <div className="playlist-panel__duration">{formatDuration(song.duration)}</div>
+      <div className="playlist-row__index-wrap">
+        <span className="playlist-row__index">{index + 1}</span>
+        <button className="playlist-row__play-icon" aria-label="播放">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <polygon points="8 5 19 12 8 19" />
+          </svg>
+        </button>
+      </div>
+      <div className="playlist-row__title">
+        {song.coverUrl ? (
+          <img className="playlist-row__cover" src={song.coverUrl} alt="" />
+        ) : (
+          <div className="playlist-row__cover playlist-row__cover--placeholder" />
+        )}
+        <div className="playlist-row__title-text">
+          <div className="playlist-row__name" title={song.name}>{song.name}</div>
+          <div className="playlist-row__artist" title={song.artist}>{song.artist}</div>
+        </div>
+      </div>
+      <div className="playlist-row__album" title={song.album ?? "--"}>{song.album ?? "--"}</div>
+      <div className="playlist-row__duration">{formatDuration(song.duration)}</div>
+      <div className="playlist-row__actions">
+        <button className="playlist-row__more-btn" aria-label="更多操作">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <circle cx="12" cy="6" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="12" cy="18" r="2" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
@@ -183,26 +210,58 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
     return (
       <div className="playlist-panel" onClick={closeContextMenu}>
         <div className="playlist-panel__header">
-          <h2 className="playlist-panel__title">收藏</h2>
+          <div className="playlist-panel__header-info">
+            <h1 className="playlist-panel__title">播放列表</h1>
+            <p className="playlist-panel__subtitle">选择左侧的播放列表查看歌曲</p>
+          </div>
         </div>
-        <div className="playlist-panel__empty">选择左侧的播放列表查看歌曲</div>
       </div>
     );
   }
 
+  const createdDate = playlist.createdAt
+    ? new Date(playlist.createdAt).toLocaleDateString("zh-CN")
+    : "";
+
   return (
     <div className="playlist-panel" onClick={closeContextMenu}>
       <div className="playlist-panel__header">
-        <h2 className="playlist-panel__title">{playlist.name}</h2>
-        <span className="playlist-panel__count">{songs.length} 首歌曲</span>
+        <div className="playlist-panel__header-cover">
+          {songs[0]?.coverUrl ? (
+            <img src={songs[0].coverUrl} alt="" />
+          ) : (
+            <div className="playlist-panel__header-cover--placeholder">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor">
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+              </svg>
+            </div>
+          )}
+        </div>
+        <div className="playlist-panel__header-info">
+          <span className="playlist-panel__label">播放列表</span>
+          <h1 className="playlist-panel__title">{playlist.name}</h1>
+          <div className="playlist-panel__meta">
+            <span>{songs.length} 首歌曲</span>
+            {createdDate && <span>· {createdDate}</span>}
+          </div>
+          <div className="playlist-panel__actions">
+            <button className="btn btn--primary">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <polygon points="8 5 19 12 8 19" />
+              </svg>
+              播放全部
+            </button>
+            <button className="btn btn--ghost">添加歌曲</button>
+          </div>
+        </div>
       </div>
 
       <div className="playlist-panel__table-header">
         <div className="playlist-panel__th">#</div>
-        <div className="playlist-panel__th">歌曲</div>
-        <div className="playlist-panel__th">歌手</div>
+        <div className="playlist-panel__th">标题</div>
         <div className="playlist-panel__th">专辑</div>
         <div className="playlist-panel__th">时长</div>
+        <div className="playlist-panel__th" />
       </div>
 
       {loading ? (

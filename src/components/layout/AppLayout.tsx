@@ -1,8 +1,16 @@
 import { NavLink } from "react-router-dom";
 import { useLocation } from "react-router-dom";
-import SearchBar from "../search/SearchBar";
 import PlayerBar from "../player/PlayerBar";
 import "./AppLayout.css";
+
+const NAV_ITEMS = [
+  { to: "/home", label: "首页", icon: "🏠" },
+  { to: "/search", label: "搜索", icon: "🔍" },
+  { to: "/local", label: "本地音乐", icon: "💿" },
+  { to: "/playlist", label: "播放列表", icon: "🎵" },
+  { to: "/download", label: "下载管理", icon: "⬇️" },
+  { to: "/settings", label: "设置", icon: "⚙️" },
+];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -14,58 +22,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return location.pathname === path;
   };
 
-  const isPlaylistPage = location.pathname === "/playlist";
-
   return (
     <div className="app-layout">
-      <header className="app-layout__header">
-        <span className="app-layout__title">Music Player</span>
-        <nav className="app-layout__nav">
-          <NavLink
-            to="/home"
-            className={`app-layout__nav-link${isActive("/home") ? " app-layout__nav-link--active" : ""}`}
-          >
-            首页
-          </NavLink>
-          <NavLink
-            to="/search"
-            className={`app-layout__nav-link${isActive("/search") ? " app-layout__nav-link--active" : ""}`}
-          >
-            搜索
-          </NavLink>
-          <NavLink
-            to="/playlist"
-            className={`app-layout__nav-link${isActive("/playlist") ? " app-layout__nav-link--active" : ""}`}
-          >
-            歌单
-          </NavLink>
-          <NavLink
-            to="/local"
-            className={`app-layout__nav-link${isActive("/local") ? " app-layout__nav-link--active" : ""}`}
-          >
-            本地音乐
-          </NavLink>
-          <NavLink
-            to="/download"
-            className={`app-layout__nav-link${isActive("/download") ? " app-layout__nav-link--active" : ""}`}
-          >
-            下载管理
-          </NavLink>
-          <NavLink
-            to="/settings"
-            className={`app-layout__nav-link${isActive("/settings") ? " app-layout__nav-link--active" : ""}`}
-          >
-            设置
-          </NavLink>
-        </nav>
-        <div className="app-layout__spacer" />
-        <SearchBar />
-      </header>
+      <aside className="app-layout__sidebar">
+        <div className="app-layout__sidebar-top">
+          <div className="app-layout__logo">
+            <span className="app-layout__logo-icon">🎧</span>
+            <span className="app-layout__logo-text">Music Player</span>
+          </div>
+          <nav className="app-layout__nav">
+            {NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={`app-layout__nav-link${
+                  isActive(item.to) ? " app-layout__nav-link--active" : ""
+                }`}
+              >
+                <span className="app-layout__nav-icon">{item.icon}</span>
+                <span className="app-layout__nav-label">{item.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+        <div className="app-layout__sidebar-bottom">
+          <div className="app-layout__user">v0.1.0</div>
+        </div>
+      </aside>
 
-      <div className="app-layout__body">
-        <main className={`app-layout__content${isPlaylistPage ? " app-layout__content--full" : ""}`}>
-          {children}
-        </main>
+      <div className="app-layout__main">
+        <main className="app-layout__content">{children}</main>
       </div>
 
       <PlayerBar />

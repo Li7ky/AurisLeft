@@ -42,6 +42,7 @@ export default function PlayerBar() {
   const [showTimerMenu, setShowTimerMenu] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customMinutes, setCustomMinutes] = useState("");
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (!showTimerMenu) {
@@ -101,6 +102,12 @@ export default function PlayerBar() {
     }
   };
 
+  const progressPercent = duration
+    ? (progress / duration) * 100
+    : currentSong
+    ? (progress / (currentSong.duration || 1)) * 100
+    : 0;
+
   if (!currentSong) {
     return (
       <div className="player-bar">
@@ -117,15 +124,17 @@ export default function PlayerBar() {
     <div className="player-bar">
       {/* Left: Song info */}
       <div className="player-bar__left">
-        {currentSong.coverUrl ? (
-          <img
-            className="player-bar__cover"
-            src={currentSong.coverUrl}
-            alt={currentSong.name}
-          />
-        ) : (
-          <div className="player-bar__cover-placeholder">♪</div>
-        )}
+        <div className="player-bar__cover-wrapper">
+          {currentSong.coverUrl ? (
+            <img
+              className="player-bar__cover"
+              src={currentSong.coverUrl}
+              alt={currentSong.name}
+            />
+          ) : (
+            <div className="player-bar__cover-placeholder">♪</div>
+          )}
+        </div>
         <div className="player-bar__song-info">
           <div className="player-bar__song-name" title={currentSong.name}>
             {currentSong.name}
@@ -134,15 +143,25 @@ export default function PlayerBar() {
             {currentSong.artist}
           </div>
         </div>
-        <button className="player-bar__favorite-btn" title="收藏">
-          ☆
+        <button
+          className={`player-bar__favorite-btn${
+            isFavorite ? " player-bar__favorite-btn--active" : ""
+          }`}
+          title={isFavorite ? "取消收藏" : "收藏"}
+          onClick={() => setIsFavorite((v) => !v)}
+        >
+          {isFavorite ? "♥" : "♡"}
         </button>
       </div>
 
       {/* Center: Controls + Progress */}
       <div className="player-bar__center">
         <div className="player-bar__controls">
-          <button className="player-bar__control-btn" onClick={() => prev()} title="上一首">
+          <button
+            className="player-bar__control-btn"
+            onClick={() => prev()}
+            title="上一首"
+          >
             ⏮
           </button>
           <button
@@ -152,31 +171,53 @@ export default function PlayerBar() {
           >
             {isPlaying ? "⏸" : "▶"}
           </button>
-          <button className="player-bar__control-btn" onClick={() => next()} title="下一首">
+          <button
+            className="player-bar__control-btn"
+            onClick={() => next()}
+            title="下一首"
+          >
             ⏭
           </button>
         </div>
         <div className="player-bar__progress-wrapper">
-          <span className="player-bar__time">{formatTime(progress)}</span>
-          <input
-            className="player-bar__progress"
-            type="range"
-            min={0}
-            max={duration || currentSong.duration || 0}
-            step={0.1}
-            value={progress}
-            onChange={handleProgressChange}
-          />
-          <span className="player-bar__time">{formatTime(duration || currentSong.duration)}</span>
+          <span className="player-bar__time">
+            {formatTime(progress)}
+          </span>
+          <div className="player-bar__progress-track">
+            <div
+              className="player-bar__progress-fill"
+              style={{ width: `${progressPercent}%` }}
+            />
+            <input
+              className="player-bar__progress-input"
+              type="range"
+              min={0}
+              max={duration || currentSong.duration || 0}
+              step={0.1}
+              value={progress}
+              onChange={handleProgressChange}
+            />
+          </div>
+          <span className="player-bar__time">
+            {formatTime(duration || currentSong.duration)}
+          </span>
         </div>
       </div>
 
-      {/* Right: Volume + Quality + Sleep Timer */}
+      {/* Right: Extra controls */}
       <div className="player-bar__right">
+        <button className="player-bar__extra-btn" title="歌词">
+          📝
+        </button>
+
         <div className="player-bar__volume-wrapper">
-          <span className="player-bar__volume-icon">
+          <button
+            className="player-bar__extra-btn"
+            title={volume === 0 ? "静音" : volume < 0.5 ? "音量" : "音量"}
+            onClick={() => setVolume(volume === 0 ? 0.5 : 0)}
+          >
             {volume === 0 ? "🔇" : volume < 0.5 ? "🔉" : "🔊"}
-          </span>
+          </button>
           <input
             className="player-bar__volume-slider"
             type="range"
@@ -187,12 +228,20 @@ export default function PlayerBar() {
             onChange={handleVolumeChange}
           />
         </div>
-        <button className="player-bar__quality-btn" onClick={handleQualityCycle} title="切换音质">
+
+        <button
+          className="player-bar__quality-btn"
+          onClick={handleQualityCycle}
+          title="切换音质"
+        >
           {QUALITY_LABELS[quality]}
         </button>
+
         <div className="player-bar__timer-wrapper">
           <button
-            className={`player-bar__timer-btn${isActive ? " player-bar__timer-btn--active" : ""}`}
+            className={`player-bar__extra-btn${
+              isActive ? " player-bar__extra-btn--active" : ""
+            }`}
             onClick={() => setShowTimerMenu(!showTimerMenu)}
             title="睡眠定时器"
           >
@@ -242,7 +291,10 @@ export default function PlayerBar() {
                       if (e.key === "Enter") handleCustomTimer();
                     }}
                   />
-                  <button className="player-bar__timer-custom-btn" onClick={handleCustomTimer}>
+                  <button
+                    className="player-bar__timer-custom-btn"
+                    onClick={handleCustomTimer}
+                  >
                     确定
                   </button>
                 </div>

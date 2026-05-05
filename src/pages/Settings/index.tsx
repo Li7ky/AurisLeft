@@ -81,35 +81,36 @@ export default function Settings() {
 
   return (
     <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-      <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "24px" }}>设置</h2>
+      <h2 style={{ fontSize: "18px", fontWeight: 700, marginBottom: "16px" }}>设置</h2>
 
       {/* Source Management */}
-      <section style={{ marginBottom: "32px" }}>
-        <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "12px" }}>音源管理</h3>
-        <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+      <section style={{ marginBottom: "24px" }}>
+        <h3 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "10px" }}>音源管理</h3>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
           <button
             onClick={handleImportSource}
             style={{
-              padding: "8px 16px",
+              padding: "6px 14px",
               background: "var(--primary)",
               color: "var(--background)",
               borderRadius: "4px",
               fontWeight: 500,
+              fontSize: "13px",
             }}
           >
             导入音源
           </button>
         </div>
-        <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
           当前已加载音源: 0 个
         </div>
       </section>
 
       {/* Playback */}
-      <section style={{ marginBottom: "32px" }}>
-        <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "12px" }}>播放设置</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
+      <section style={{ marginBottom: "24px" }}>
+        <h3 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "10px" }}>播放设置</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
             默认音质:
             <select
               value={defaultQuality}
@@ -120,6 +121,7 @@ export default function Settings() {
                 border: "1px solid var(--border)",
                 borderRadius: "4px",
                 padding: "4px 8px",
+                fontSize: "13px",
               }}
             >
               <option value={Quality.K128}>128K</option>
@@ -128,11 +130,11 @@ export default function Settings() {
               <option value={Quality.HiRes}>Hi-Res</option>
             </select>
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
             <input type="checkbox" checked={autoPlayNext} onChange={handleAutoPlayChange} />
             自动播放下一首
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
             <input type="checkbox" checked={showLyric} onChange={handleShowLyricChange} />
             显示歌词
           </label>
@@ -140,13 +142,13 @@ export default function Settings() {
       </section>
 
       {/* Appearance */}
-      <section style={{ marginBottom: "32px" }}>
-        <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "12px" }}>外观设置</h3>
-        <div style={{ marginBottom: "16px" }}>
-          <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "8px" }}>
+      <section style={{ marginBottom: "24px" }}>
+        <h3 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "10px" }}>外观设置</h3>
+        <div style={{ marginBottom: "12px" }}>
+          <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "8px" }}>
             预设主题
           </div>
-          <div style={{ display: "flex", gap: "12px" }}>
+          <div style={{ display: "flex", gap: "10px" }}>
             {PRESET_THEMES.map((preset) => (
               <button
                 key={preset.name}
@@ -155,30 +157,30 @@ export default function Settings() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: "8px",
-                  padding: "12px",
-                  borderRadius: "8px",
+                  gap: "6px",
+                  padding: "10px",
+                  borderRadius: "6px",
                   border: theme.primary === preset.theme.primary ? "2px solid var(--primary)" : "1px solid var(--border)",
                   background: preset.theme.surface,
                   cursor: "pointer",
-                  minWidth: "80px",
+                  minWidth: "72px",
                 }}
               >
                 <div
                   style={{
-                    width: "32px",
-                    height: "32px",
+                    width: "28px",
+                    height: "28px",
                     borderRadius: "50%",
                     background: preset.theme.primary,
                   }}
                 />
-                <span style={{ fontSize: "12px", color: "var(--text-primary)" }}>{preset.name}</span>
+                <span style={{ fontSize: "11px", color: "var(--text-primary)" }}>{preset.name}</span>
               </button>
             ))}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "8px" }}>
+          <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "8px" }}>
             自定义主题色
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -186,15 +188,16 @@ export default function Settings() {
               type="color"
               value={customColor}
               onChange={(e) => setCustomColor(e.target.value)}
-              style={{ width: "36px", height: "36px", border: "none", cursor: "pointer" }}
+              style={{ width: "32px", height: "32px", border: "none", cursor: "pointer" }}
             />
             <button
               onClick={applyCustomColor}
               style={{
-                padding: "6px 14px",
+                padding: "5px 12px",
                 background: "var(--surface-hover)",
                 color: "var(--text-primary)",
                 borderRadius: "4px",
+                fontSize: "13px",
               }}
             >
               应用
@@ -205,8 +208,8 @@ export default function Settings() {
 
       {/* About */}
       <section>
-        <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "12px" }}>关于</h3>
-        <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.8 }}>
+        <h3 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "10px" }}>关于</h3>
+        <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.8 }}>
           <div>Music Player v0.1.0</div>
           <div>基于 Tauri 2.x + React 18 构建</div>
           <div>支持多音源搜索、歌词显示、歌单管理</div>

@@ -4,6 +4,7 @@ import App from "./App";
 import { subscribePlayerEvents } from "./store/playerStore";
 import { subscribeDownloadEvents } from "./store/downloadStore";
 import "./styles/global.css";
+import "./styles/utilities.css";
 
 subscribePlayerEvents();
 subscribeDownloadEvents();
