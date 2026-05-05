@@ -77,7 +77,32 @@ export default function Settings() {
   }, []);
 
   const handleImportSource = async () => {
-    console.log("Import source triggered - file dialog would open here");
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,.js";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const content = await file.text();
+      const ext = file.name.split(".").pop()?.toLowerCase();
+
+      try {
+        if (ext === "json") {
+          // Save as sources.json config and load
+          await invoke("save_sources_config", { content });
+          const sources = await invoke<SourceInfo[]>("load_sources_from_file");
+          setLoadedSources(sources);
+        } else if (ext === "js") {
+          // Register a single JS source directly
+          await invoke("register_js_source", { code: content });
+          const sources = await invoke<SourceInfo[]>("list_sources");
+          setLoadedSources(sources);
+        }
+      } catch (err) {
+        console.error("[Settings] 导入音源失败:", err);
+      }
+    };
+    input.click();
   };
 
   const handleQualityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

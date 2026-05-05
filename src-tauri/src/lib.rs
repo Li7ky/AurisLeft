@@ -118,8 +118,8 @@ pub fn run() {
         .setup(|app| {
             setup(app).map_err(|e| tauri::Error::Anyhow(e.into()))?;
             
-            // Avoid starting async pollers during setup; runtime may not be ready yet.
-            // Progress updates are still available via explicit player commands/events.
+            // Start progress poller for playback progress events
+            spawn_progress_poller(app.handle().clone());
             
             // 启动时加载音源
             load_sources_at_startup(app.handle());
@@ -157,6 +157,7 @@ pub fn run() {
             commands::sources::toggle_source,
             commands::sources::remove_source,
             commands::sources::load_sources_from_file,
+            commands::sources::save_sources_config,
             commands::search::search_music,
             commands::player::play_song,
             commands::player::pause_playback,
