@@ -1,26 +1,29 @@
 .download-manager {
-  padding: 16px;
+  padding: 16px 24px;
   max-width: 900px;
   margin: 0 auto;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .download-manager__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .download-manager__title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
 }
 
 .download-manager__clear-btn {
-  padding: 6px 12px;
+  padding: 6px 14px;
   font-size: 12px;
+  font-weight: 500;
   color: var(--text-secondary);
   background: transparent;
   border: 1px solid var(--border);
@@ -45,13 +48,13 @@
 .download-manager__list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .download-manager__item {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 12px 16px;
   transition: border-color 0.15s;
 }
@@ -60,11 +63,18 @@
   border-color: var(--primary);
 }
 
+.download-manager__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .download-manager__song-info {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  width: 100%;
+  gap: 12px;
 }
 
 .download-manager__song-name {
@@ -75,12 +85,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
-  margin-right: 16px;
 }
 
 .download-manager__status {
   font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .download-manager__status--downloading {
@@ -96,10 +107,11 @@
 }
 
 .download-manager__progress-bar {
-  height: 4px;
+  height: 3px;
   background: var(--border);
   border-radius: 2px;
   overflow: hidden;
+  margin-top: 10px;
 }
 
 .download-manager__progress-fill {

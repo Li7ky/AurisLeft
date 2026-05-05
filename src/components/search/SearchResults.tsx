@@ -4,41 +4,49 @@ import { Quality } from "../../types";
 import type { Song } from "../../types";
 import "./SearchResults.css";
 
-function formatDuration(seconds: number): string {
-  if (!seconds || !Number.isFinite(seconds)) return "--:--";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function SongRow({ song }: { song: Song }) {
+function SongCard({ song }: { song: Song }) {
   const play = usePlayerStore((s) => s.play);
+  const currentSong = usePlayerStore((s) => s.currentSong);
+  const isActive = currentSong?.id === song.id && currentSong?.source === song.source;
 
-  const handlePlay = () => {
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    play(song, song.qualities.includes(song.qualities[0]) ? song.qualities[0] : Quality.K320);
+  };
+
+  const handleCardClick = () => {
     play(song, song.qualities.includes(song.qualities[0]) ? song.qualities[0] : Quality.K320);
   };
 
   return (
-    <div className="search-results__row" onClick={handlePlay}>
-      {song.coverUrl ? (
-        <img className="search-results__cover" src={song.coverUrl} alt="" />
-      ) : (
-        <div className="search-results__cover" />
-      )}
-      <div className="search-results__name" title={song.name}>{song.name}</div>
-      <div className="search-results__artist" title={song.artist}>{song.artist}</div>
-      <div className="search-results__album" title={song.album || ""}>{song.album || "--"}</div>
-      <div className="search-results__duration">{formatDuration(song.duration)}</div>
-      <div className="search-results__play-icon">▶</div>
+    <div className={`song-card${isActive ? " song-card--active" : ""}`} onClick={handleCardClick}>
+      <div className="song-card__cover">
+        {song.coverUrl ? (
+          <img src={song.coverUrl} alt={song.name} />
+        ) : (
+          <div className="song-card__cover-placeholder" />
+        )}
+        <button className="play-button" onClick={handlePlay} aria-label="播放">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <polygon points="8 5 19 12 8 19" />
+          </svg>
+        </button>
+      </div>
+      <div className="song-card__name" title={song.name}>{song.name}</div>
+      <div className="song-card__artist" title={song.artist}>{song.artist}</div>
     </div>
   );
 }
 
 function Skeleton() {
   return (
-    <div className="search-results__skeleton">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="search-results__skeleton-row" />
+    <div className="search-results__grid">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="song-card song-card--skeleton">
+          <div className="song-card__cover song-card__cover--skeleton" />
+          <div className="song-card__name song-card__name--skeleton" />
+          <div className="song-card__artist song-card__artist--skeleton" />
+        </div>
       ))}
     </div>
   );
@@ -50,29 +58,30 @@ export default function SearchResults() {
   const keyword = useSearchStore((s) => s.keyword);
 
   if (loading) {
-    return <div className="search-results"><Skeleton /></div>;
+    return (
+      <div className="search-results">
+        <Skeleton />
+      </div>
+    );
   }
 
   if (!keyword) {
     return <div className="search-results__empty">输入关键词开始搜索</div>;
   }
 
-  if (results.size === 0) {
+  const allSongs = Array.from(results.values()).flat();
+
+  if (allSongs.length === 0) {
     return <div className="search-results__empty">未找到相关结果</div>;
   }
 
   return (
     <div className="search-results">
-      {Array.from(results.entries()).map(([source, songs]) => (
-        <div key={source} className="search-results__group">
-          <div className="search-results__source">{source}</div>
-          <div className="search-results__list">
-            {songs.map((song) => (
-              <SongRow key={song.id + song.source + song.songId} song={song} />
-            ))}
-          </div>
-        </div>
-      ))}
+      <div className="search-results__grid">
+        {allSongs.map((song) => (
+          <SongCard key={song.id + song.source + song.songId} song={song} />
+        ))}
+      </div>
     </div>
   );
 }

@@ -37,11 +37,13 @@ export default function DownloadManager() {
         <div className="download-manager__list">
           {tasks.map((task, index) => (
             <div key={index} className="download-manager__item">
-              <div className="download-manager__song-info">
-                <span className="download-manager__song-name">{task.songName}</span>
-                <span className={`download-manager__status download-manager__status--${task.status}`}>
-                  {statusText(task)}
-                </span>
+              <div className="download-manager__row">
+                <div className="download-manager__song-info">
+                  <span className="download-manager__song-name">{task.songName}</span>
+                  <span className={`download-manager__status download-manager__status--${task.status}`}>
+                    {statusText(task)}
+                  </span>
+                </div>
               </div>
               {task.status === DownloadStatus.Downloading && (
                 <div className="download-manager__progress-bar">

@@ -5,9 +5,10 @@ import "./LyricDisplay.css";
 
 interface LyricDisplayProps {
   lines: LyricLine[];
+  mode?: "inline" | "fullscreen";
 }
 
-export default function LyricDisplay({ lines }: LyricDisplayProps) {
+export default function LyricDisplay({ lines, mode = "inline" }: LyricDisplayProps) {
   const progress = usePlayerStore((s) => s.progress);
   const seek = usePlayerStore((s) => s.seek);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -47,24 +48,29 @@ export default function LyricDisplay({ lines }: LyricDisplayProps) {
 
   if (!lines.length) {
     return (
-      <div className="lyric-display">
+      <div className={`lyric-display lyric-display--${mode}`}>
         <div className="lyric-display__empty">暂无歌词</div>
       </div>
     );
   }
 
   return (
-    <div className="lyric-display" ref={containerRef}>
-      {lines.map((line, i) => (
-        <div
-          key={`${line.time}-${i}`}
-          ref={(el) => setLineRef(i, el)}
-          className={`lyric-line${i === activeIndex ? " lyric-line--active" : ""}`}
-          onClick={() => handleLineClick(line.time)}
-        >
-          {line.text || "\u00A0"}
-        </div>
-      ))}
+    <div className={`lyric-display lyric-display--${mode}`} ref={containerRef}>
+      {lines.map((line, i) => {
+        let cls = "lyric-line";
+        if (i === activeIndex) cls += " active";
+        else if (i < activeIndex) cls += " passed";
+        return (
+          <div
+            key={`${line.time}-${i}`}
+            ref={(el) => setLineRef(i, el)}
+            className={cls}
+            onClick={() => handleLineClick(line.time)}
+          >
+            {line.text || "\u00A0"}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -17,16 +17,16 @@ export default function Home() {
   const showLyric = currentSong && playbackState !== PlaybackState.Idle;
 
   return (
-    <div style={{ display: "flex", gap: "16px", height: "100%" }}>
+    <div style={{ display: "flex", gap: "12px", height: "100%" }}>
       <div style={{ flex: showLyric ? 1 : undefined, minWidth: 0 }}>
-        <h2 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "16px" }}>
+        <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "12px" }}>
           欢迎使用 Music Player
         </h2>
 
         {!showLyric && (
           <>
-            <section style={{ marginBottom: "24px" }}>
-              <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "12px", color: "var(--text-secondary)" }}>
+            <section style={{ marginBottom: "20px" }}>
+              <h3 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "10px", color: "var(--text-secondary)" }}>
                 我的歌单
               </h3>
               {playlists.length === 0 ? (
@@ -38,13 +38,13 @@ export default function Home() {
                       key={pl.id}
                       style={{
                         background: "var(--surface)",
-                        borderRadius: "8px",
-                        padding: "12px 16px",
+                        borderRadius: "6px",
+                        padding: "10px 14px",
                         minWidth: "120px",
                       }}
                     >
-                      <div style={{ fontWeight: 500 }}>{pl.name}</div>
-                      <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                      <div style={{ fontWeight: 500, fontSize: "13px" }}>{pl.name}</div>
+                      <div style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
                         {pl.songCount} 首
                       </div>
                     </div>
@@ -54,7 +54,7 @@ export default function Home() {
             </section>
 
             <section>
-              <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "12px", color: "var(--text-secondary)" }}>
+              <h3 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "10px", color: "var(--text-secondary)" }}>
                 最近播放
               </h3>
               <div style={{ color: "var(--text-secondary)", fontSize: "13px" }}>
@@ -66,7 +66,7 @@ export default function Home() {
       </div>
 
       {showLyric && (
-        <div style={{ flex: 1, minWidth: 0, background: "var(--surface)", borderRadius: "8px" }}>
+        <div style={{ flex: 1, minWidth: 0, background: "var(--surface)", borderRadius: "6px" }}>
           <LyricDisplay lines={[]} />
         </div>
       )}

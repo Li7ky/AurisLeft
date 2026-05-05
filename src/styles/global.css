@@ -9,8 +9,14 @@
   --border: #282828;
   --error: #e22134;
   --warning: #ffa726;
-  --player-bar-height: 90px;
+  --player-bar-height: 72px;
+  --sidebar-width: 240px;
   --header-height: 56px;
+  --transition-fast: 0.1s;
+  --essential-base: #ffffff;
+  --essential-subdued: #4d4d4d;
+  --essential-bright-accent: #1db954;
+  --text-bright-accent: #1ed760;
 }
 
 * {
