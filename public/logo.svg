@@ -1,19 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#1DB954"/>
       <stop offset="100%" stop-color="#1ed760"/>
     </linearGradient>
   </defs>
   
-  <!-- 背景圆 -->
-  <circle cx="128" cy="128" r="120" fill="url(#bg)"/>
+  <!-- 背景 -->
+  <circle cx="128" cy="128" r="120" fill="url(#grad1)"/>
   
-  <!-- 简化的耳朵轮廓 -->
-  <path d="M95 185 Q75 165, 80 135 Q85 105, 110 85 Q140 65, 175 70 Q205 75, 215 105 Q225 140, 205 170 Q180 200, 145 195 Q115 190, 95 185 Z" 
-        fill="white" opacity="0.9"/>
+  <!-- 极简耳机造型 -->
+  <path d="M85 150 L85 125 C85 100, 100 85, 128 85 C156 85, 171 100, 171 125 L171 150" 
+        stroke="white" stroke-width="10" stroke-linecap="round" fill="none"/>
   
-  <!-- 音符 -->
-  <ellipse cx="150" cy="135" rx="18" ry="22" fill="#1DB954"/>
-  <rect x="145" y="95" width="8" height="45" fill="#1DB954" rx="4"/>
+  <!-- 耳罩 - 左 -->
+  <circle cx="85" cy="150" r="16" fill="white"/>
+  <!-- 耳罩 - 右 -->
+  <circle cx="171" cy="150" r="16" fill="white"/>
 </svg>
