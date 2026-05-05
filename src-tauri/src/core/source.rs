@@ -3,9 +3,10 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use crate::core::error::Result;
+use crate::core::error::{Result, AppError};
+use crate::core::http::HttpClient;
 use crate::core::js_runtime::JSScript;
-use crate::models::{Lyric, Quality, SearchResult, SourceInfo, SourceType};
+use crate::models::{Lyric, Quality, SearchResult, Song, SourceInfo, SourceType};
 
 /// A JSON-based music source configured with API endpoints
 #[derive(Clone)]
@@ -187,11 +188,8 @@ impl SourceManager {
                 })?;
                 Ok(result)
             }
-            MusicSource::Js(script) => {
-                let source_key = script.info.sources_info.keys().next().cloned().unwrap_or_default();
-                script
-                    .search(&source_key, keyword, page, self.http.clone())
-                    .await
+            MusicSource::Js(_script) => {
+                Self::builtin_search(&self.http, keyword, page, source_id).await
             }
         }
     }
@@ -232,9 +230,9 @@ impl SourceManager {
                 Ok(music_url)
             }
             MusicSource::Js(script) => {
-                let source_key = script.info.sources_info.keys().next().cloned().unwrap_or_default();
+                let (platform, real_id) = Self::parse_platform_song_id(song_id, script);
                 script
-                    .get_music_url(&source_key, song_id, quality, self.http.clone())
+                    .get_music_url(&platform, &real_id, quality, self.http.clone())
                     .await
             }
         }
@@ -253,10 +251,88 @@ impl SourceManager {
                 Ok(lyric)
             }
             MusicSource::Js(script) => {
-                let source_key = script.info.sources_info.keys().next().cloned().unwrap_or_default();
-                script.get_lyric(&source_key, song_id, self.http.clone()).await
+                let (platform, real_id) = Self::parse_platform_song_id(song_id, script);
+                script.get_lyric(&platform, &real_id, self.http.clone()).await
             }
         }
+    }
+
+    /// Parse song_id in "platform:real_id" format, fallback to first source key
+    fn parse_platform_song_id(song_id: &str, script: &JSScript) -> (String, String) {
+        if let Some(idx) = song_id.find(':') {
+            (song_id[..idx].to_string(), song_id[idx + 1..].to_string())
+        } else {
+            let key = script.info.sources_info.keys().next().cloned().unwrap_or_default();
+            (key, song_id.to_string())
+        }
+    }
+
+    /// Built-in search using NetEase Cloud Music API
+    async fn builtin_search(
+        http: &HttpClient,
+        keyword: &str,
+        page: u32,
+        source_id: &str,
+    ) -> Result<SearchResult> {
+        let offset = ((page.max(1) - 1) * 30).to_string();
+        let form = [
+            ("s", keyword),
+            ("type", "1"),
+            ("offset", &offset),
+            ("limit", "30"),
+        ];
+        let body = http.post_form(
+            "https://music.163.com/api/search/get",
+            &form,
+        ).await?;
+
+        let resp: serde_json::Value = serde_json::from_str(&body).map_err(|e| {
+            AppError::InvalidFormat(format!("Failed to parse NetEase response: {}", e))
+        })?;
+
+        let songs_arr = resp
+            .pointer("/result/songs")
+            .and_then(|v| v.as_array());
+
+        let total = resp
+            .pointer("/result/songCount")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32;
+
+        let songs: Vec<Song> = match songs_arr {
+            Some(arr) => arr.iter().filter_map(|s| {
+                let id = s.get("id")?.as_u64()?.to_string();
+                let name = s.get("name")?.as_str()?.to_string();
+                let artists: Vec<String> = s.get("artists")
+                    .and_then(|a| a.as_array())
+                    .map(|arr| arr.iter().filter_map(|a| a.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect())
+                    .unwrap_or_default();
+                let album = s.pointer("/album/name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let cover = s.pointer("/album/picUrl").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let duration = s.get("duration").and_then(|v| v.as_u64()).unwrap_or(0) / 1000;
+
+                Some(Song {
+                    id: format!("wy:{}", id),
+                    name,
+                    artist: artists.join(" / "),
+                    album,
+                    duration: duration as u32,
+                    cover_url: cover,
+                    source: source_id.to_string(),
+                    song_id: format!("wy:{}", id),
+                    qualities: vec![Quality::K128, Quality::K320, Quality::FLAC],
+                })
+            }).collect(),
+            None => vec![],
+        };
+
+        eprintln!("[DEBUG] NetEase search '{}': found {} songs", keyword, songs.len());
+        Ok(SearchResult {
+            total,
+            songs,
+            page,
+            per_page: 30,
+        })
     }
 
     pub async fn search_all(

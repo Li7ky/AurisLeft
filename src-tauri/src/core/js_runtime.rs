@@ -7,7 +7,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use cbc::cipher::KeyIvInit;
 use md5::Md5;
 use rquickjs::{
-    prelude::Func, CatchResultExt, Ctx, Exception, Function, Object, Result as JsResult,
+    prelude::{Func, Rest}, CatchResultExt, Ctx, Exception, Function, Object, Result as JsResult,
     Value,
 };
 use rsa::pkcs8::DecodePublicKey;
@@ -63,6 +63,24 @@ fn pkcs7_pad(data: Vec<u8>, block_size: usize) -> Vec<u8> {
 }
 
 impl JSScript {
+    fn parse_script_header(code: &str) -> (String, String) {
+        let mut name = "Unknown".to_string();
+        let mut version = "0".to_string();
+        for line in code.lines().take(20) {
+            let trimmed = line.trim().trim_start_matches('*').trim();
+            if let Some(n) = trimmed.strip_prefix("@name ") {
+                name = n.trim().to_string();
+            }
+            if let Some(v) = trimmed.strip_prefix("@version ") {
+                version = v.trim().to_string();
+            }
+            if trimmed.ends_with("*/") {
+                break;
+            }
+        }
+        (name, version)
+    }
+
     pub async fn load_script(code: &str, http: HttpClient) -> AppResult<Self> {
         let code = code.to_string();
         let result = tokio::task::spawn_blocking(move || {
@@ -82,44 +100,94 @@ impl JSScript {
         })?;
         rt.set_memory_limit(1024 * 1024 * 200);
 
-        let ctx = rquickjs::Context::full(&rt).map_err(|e| {
-            crate::core::error::AppError::SourceError(format!("Failed to create JS context: {}", e))
-        })?;
-
         let inner = Arc::new(std::sync::RwLock::new(JSContext::new()));
 
-        ctx.with(|js_ctx| {
-            let globals = js_ctx.globals();
-            let lx = Self::build_lx_global(&js_ctx, &http).catch(&js_ctx).map_err(|e| {
-                crate::core::error::AppError::SourceError(format!("Failed to build lx global: {}", e))
+        let eval_result = {
+            let ctx = rquickjs::Context::full(&rt).map_err(|e| {
+                crate::core::error::AppError::SourceError(format!("Failed to create JS context: {}", e))
             })?;
-            globals.set("lx", lx).catch(&js_ctx).map_err(|e| {
-                crate::core::error::AppError::SourceError(format!("Failed to set global lx: {}", e))
-            })?;
-            js_ctx.eval::<(), _>(code).catch(&js_ctx).map_err(|e| {
-                crate::core::error::AppError::SourceError(format!("JS script execution error: {}", e))
-            })?;
-            Ok::<_, crate::core::error::AppError>(())
-        })?;
+
+            let res = ctx.with(|js_ctx| {
+                let globals = js_ctx.globals();
+                
+                // Polyfill for console
+                let console = Object::new(js_ctx.clone()).unwrap();
+                let log_fn = Func::from(|args: Rest<Value<'_>>| {
+                    let parts: Vec<String> = args.0.iter().map(|v| format!("{:?}", v)).collect();
+                    eprintln!("[JS console] {}", parts.join(" "));
+                    Ok::<_, rquickjs::Error>(())
+                });
+                console.set("log", log_fn).unwrap();
+                let warn_fn = Func::from(|args: Rest<Value<'_>>| {
+                    let parts: Vec<String> = args.0.iter().map(|v| format!("{:?}", v)).collect();
+                    eprintln!("[JS warn] {}", parts.join(" "));
+                    Ok::<_, rquickjs::Error>(())
+                });
+                console.set("warn", warn_fn).unwrap();
+                let error_fn = Func::from(|args: Rest<Value<'_>>| {
+                    let parts: Vec<String> = args.0.iter().map(|v| format!("{:?}", v)).collect();
+                    eprintln!("[JS error] {}", parts.join(" "));
+                    Ok::<_, rquickjs::Error>(())
+                });
+                console.set("error", error_fn).unwrap();
+                let info_fn = Func::from(|_args: Rest<Value<'_>>| {
+                    Ok::<_, rquickjs::Error>(())
+                });
+                console.set("info", info_fn).unwrap();
+                console.set("debug", Func::from(|_args: Rest<Value<'_>>| Ok::<_, rquickjs::Error>(()))).unwrap();
+                globals.set("console", console).unwrap();
+
+                // Polyfill for process
+                let process = Object::new(js_ctx.clone()).unwrap();
+                let versions = Object::new(js_ctx.clone()).unwrap();
+                versions.set("node", "18.0.0").unwrap();
+                process.set("versions", versions).unwrap();
+                process.set("version", "v18.0.0").unwrap();
+                globals.set("process", process).unwrap();
+
+                // Polyfill for global/globalThis alias
+                let _ = globals.set("global", globals.clone());
+                let _ = globals.set("globalThis", globals.clone());
+                let _ = globals.set("window", globals.clone());
+
+                let (script_name, script_version) = Self::parse_script_header(code);
+                let lx = Self::build_lx_global(&js_ctx, &http, &script_name, &script_version, Some(inner.clone())).catch(&js_ctx).map_err(|e| {
+                    crate::core::error::AppError::SourceError(format!("Failed to build lx global: {}", e))
+                })?;
+                
+                // Set lx to all possible global objects
+                globals.set("lx", lx.clone()).unwrap();
+                
+                js_ctx.eval::<(), _>(code).catch(&js_ctx).map_err(|e| {
+                    crate::core::error::AppError::SourceError(format!("JS script execution error: {}", e))
+                })?;
+                
+                Ok::<_, crate::core::error::AppError>(())
+            });
+
+            // Drain microtask queue so Promise callbacks (including send('inited', ...)) execute
+            while let Ok(true) = rt.execute_pending_job() {}
+
+            drop(ctx);
+            res
+        };
+
+        rt.run_gc();
+        eval_result?;
 
         let inner_read = inner.read().unwrap();
-        let name = inner_read
-            .sources_info
-            .values()
-            .next()
-            .map(|s| s.name.clone())
-            .unwrap_or_else(|| "Unknown JS Source".to_string());
         let sources_info = inner_read.sources_info.clone();
         drop(inner_read);
 
+        let (parsed_name, parsed_version) = Self::parse_script_header(code);
         let script_id = uuid::Uuid::new_v4().to_string();
 
         Ok(Self {
             raw_code: code.to_string(),
             info: JSScriptInfo {
                 id: script_id,
-                name,
-                version: "1.0.0".to_string(),
+                name: parsed_name,
+                version: parsed_version,
                 sources_info,
             },
         })
@@ -258,87 +326,150 @@ impl JSScript {
         })?;
         rt.set_memory_limit(1024 * 1024 * 200);
 
-        let ctx = rquickjs::Context::full(&rt).map_err(|e| {
-            crate::core::error::AppError::SourceError(format!("Failed to create JS context: {}", e))
-        })?;
-
         let captured_result: Arc<std::sync::Mutex<Option<serde_json::Value>>> =
             Arc::new(std::sync::Mutex::new(None));
         let captured_error: Arc<std::sync::Mutex<Option<String>>> =
             Arc::new(std::sync::Mutex::new(None));
 
-        let source = source.to_string();
-        let action = action.to_string();
-        let info_str = serde_json::to_string(&info)
-            .map_err(|e| crate::core::error::AppError::InvalidFormat(e.to_string()))?;
-
-        let result = captured_result.clone();
-        let err_sink = captured_error.clone();
-
-        ctx.with(|js_ctx| {
-            let globals = js_ctx.globals();
-
-            // Build lx global with request function
-            let lx = Self::build_lx_global_with_capture(
-                &js_ctx,
-                &http,
-                &result,
-                &err_sink,
-            )
-            .catch(&js_ctx)
-            .map_err(|e| {
-                crate::core::error::AppError::SourceError(format!("Failed to build lx global: {}", e))
-            })?;
-            globals.set("lx", lx).catch(&js_ctx).map_err(|e| {
-                crate::core::error::AppError::SourceError(format!("Failed to set global lx: {}", e))
+        let eval_result = {
+            let ctx = rquickjs::Context::full(&rt).map_err(|e| {
+                crate::core::error::AppError::SourceError(format!("Failed to create JS context: {}", e))
             })?;
 
-            // Run the script
-            js_ctx.eval::<(), _>(code).catch(&js_ctx).map_err(|e| {
-                crate::core::error::AppError::SourceError(format!("JS script execution error: {}", e))
-            })?;
+            let source = source.to_string();
+            let action = action.to_string();
+            let info_str = serde_json::to_string(&info)
+                .map_err(|e| crate::core::error::AppError::InvalidFormat(e.to_string()))?;
 
-            // Set up action input via globals
-            let globals = js_ctx.globals();
-            let payload = json!({
-                "source": source,
-                "action": action,
-                "info": serde_json::from_str::<serde_json::Value>(&info_str).unwrap(),
+            let result = captured_result.clone();
+            let err_sink = captured_error.clone();
+
+            let res = ctx.with(|js_ctx| {
+                let globals = js_ctx.globals();
+
+                // Polyfill for console
+                let console = Object::new(js_ctx.clone()).unwrap();
+                let log_fn = Func::from(|args: Rest<Value<'_>>| {
+                    let parts: Vec<String> = args.0.iter().map(|v| format!("{:?}", v)).collect();
+                    eprintln!("[JS console] {}", parts.join(" "));
+                    Ok::<_, rquickjs::Error>(())
+                });
+                console.set("log", log_fn).unwrap();
+                let warn_fn = Func::from(|args: Rest<Value<'_>>| {
+                    let parts: Vec<String> = args.0.iter().map(|v| format!("{:?}", v)).collect();
+                    eprintln!("[JS warn] {}", parts.join(" "));
+                    Ok::<_, rquickjs::Error>(())
+                });
+                console.set("warn", warn_fn).unwrap();
+                let error_fn = Func::from(|args: Rest<Value<'_>>| {
+                    let parts: Vec<String> = args.0.iter().map(|v| format!("{:?}", v)).collect();
+                    eprintln!("[JS error] {}", parts.join(" "));
+                    Ok::<_, rquickjs::Error>(())
+                });
+                console.set("error", error_fn).unwrap();
+                let info_fn = Func::from(|_args: Rest<Value<'_>>| {
+                    Ok::<_, rquickjs::Error>(())
+                });
+                console.set("info", info_fn).unwrap();
+                console.set("debug", Func::from(|_args: Rest<Value<'_>>| Ok::<_, rquickjs::Error>(()))).unwrap();
+                globals.set("console", console).unwrap();
+
+                // Polyfill for process
+                let process = Object::new(js_ctx.clone()).unwrap();
+                let versions = Object::new(js_ctx.clone()).unwrap();
+                versions.set("node", "18.0.0").unwrap();
+                process.set("versions", versions).unwrap();
+                process.set("version", "v18.0.0").unwrap();
+                globals.set("process", process).unwrap();
+
+                // Polyfill for global/globalThis alias
+                let _ = globals.set("global", globals.clone());
+                let _ = globals.set("globalThis", globals.clone());
+                let _ = globals.set("window", globals.clone());
+
+                // Build lx global with request function
+                let (script_name, script_version) = Self::parse_script_header(code);
+                let lx = Self::build_lx_global_with_capture(
+                    &js_ctx,
+                    &http,
+                    &result,
+                    &err_sink,
+                    &script_name,
+                    &script_version,
+                )
+                .catch(&js_ctx)
+                .map_err(|e| {
+                    crate::core::error::AppError::SourceError(format!("Failed to build lx global: {}", e))
+                })?;
+                
+                // Set lx to all possible global objects
+                globals.set("lx", lx.clone()).unwrap();
+
+                // Run the script
+                js_ctx.eval::<(), _>(code).catch(&js_ctx).map_err(|e| {
+                    crate::core::error::AppError::SourceError(format!("JS script execution error: {}", e))
+                })?;
+
+                Ok::<_, crate::core::error::AppError>(())
             });
-            let payload_str = serde_json::to_string(&payload).unwrap();
-            let p = js_ctx.json_parse(payload_str.as_bytes()).catch(&js_ctx).map_err(|e| {
-                crate::core::error::AppError::SourceError(format!("Failed to parse payload: {}", e))
-            })?;
 
-            // Try to call the handler if it was set via a special function
-            // For now, we use a different approach: the script is expected to
-            // call a function with the action directly
-            // We'll set a global and eval a snippet that calls it
+            // Drain microtask queue so on('request', handler) registration executes
+            while let Ok(true) = rt.execute_pending_job() {}
 
-            // Create the request event info
-            globals.set("__lx_action_payload", p).catch(&js_ctx).map_err(|e| {
-                crate::core::error::AppError::SourceError(format!("Failed to set action payload: {}", e))
-            })?;
+            // Now trigger the handler in a second ctx.with call
+            let res2 = ctx.with(|js_ctx| {
+                let globals = js_ctx.globals();
+                let payload = json!({
+                    "source": source,
+                    "action": action,
+                    "info": serde_json::from_str::<serde_json::Value>(&info_str).unwrap(),
+                });
+                let payload_str = serde_json::to_string(&payload).unwrap();
+                let p = js_ctx.json_parse(payload_str.as_bytes()).catch(&js_ctx).map_err(|e| {
+                    crate::core::error::AppError::SourceError(format!("Failed to parse payload: {}", e))
+                })?;
 
-            // Try to trigger the handler via a global eval
-            // This assumes the script has set up a handler via on(EVENT_NAMES.request, ...)
-            // Since we can't retain the function reference, we use a different approach:
-            // Re-eval code with an appended action trigger
-            let trigger_code = format!(
-                r#"(function() {{
-                    var handler = lx._lx_handler;
-                    if (typeof handler === 'function') {{
-                        handler.call(lx, __lx_action_payload);
-                    }}
-                }})()"#
-            );
+                globals.set("__lx_action_payload", p).catch(&js_ctx).map_err(|e| {
+                    crate::core::error::AppError::SourceError(format!("Failed to set action payload: {}", e))
+                })?;
 
-            let _: () = js_ctx.eval(trigger_code.as_str()).catch(&js_ctx).map_err(|e| {
-                crate::core::error::AppError::SourceError(format!("Failed to trigger action: {}", e))
-            })?;
+                // Trigger the handler with (query, callback) pattern used by LX Music sources
+                let trigger_code = r#"(function() {
+                    try {
+                        var handler = globalThis._lx_handler;
+                        if (typeof handler === 'function') {
+                            handler.call(lx, __lx_action_payload, function(err, result) {
+                                if (err) {
+                                    lx._capture_error(err.message || err.toString());
+                                } else {
+                                    lx._capture_result(result);
+                                }
+                            });
+                        } else {
+                            lx._capture_error("not a function");
+                        }
+                    } catch (e) {
+                        lx._capture_error(e.message || e.toString());
+                    }
+                })()"#;
 
-            Ok::<_, crate::core::error::AppError>(())
-        })?;
+                let _: () = js_ctx.eval(trigger_code).catch(&js_ctx).map_err(|e| {
+                    crate::core::error::AppError::SourceError(format!("Failed to trigger action: {}", e))
+                })?;
+
+                Ok::<_, crate::core::error::AppError>(())
+            });
+
+            // Drain microtask queue for handler's async operations (HTTP requests, Promise callbacks)
+            while let Ok(true) = rt.execute_pending_job() {}
+
+            drop(ctx);
+            res?;
+            res2
+        };
+
+        rt.run_gc();
+        eval_result?;
 
         // Check if error was captured
         if let Some(err) = captured_error.lock().unwrap().take() {
@@ -364,6 +495,9 @@ impl JSScript {
     fn build_lx_global<'js>(
         ctx: &Ctx<'js>,
         http: &HttpClient,
+        script_name: &str,
+        script_version: &str,
+        inner: Option<Arc<std::sync::RwLock<JSContext>>>,
     ) -> JsResult<Object<'js>> {
         let lx = Object::new(ctx.clone())?;
 
@@ -371,7 +505,14 @@ impl JSScript {
         event_names.set("request", EVENT_NAMES_REQUEST)?;
         event_names.set("inited", EVENT_NAMES_INITED)?;
         lx.set("EVENT_NAMES", event_names)?;
-        lx.set("version", "1.0.0")?;
+        lx.set("version", "1.2.0")?;
+
+        // Set env and currentScriptInfo for LX Music source compatibility
+        lx.set("env", "desktop")?;
+        let script_info = Object::new(ctx.clone())?;
+        script_info.set("name", script_name)?;
+        script_info.set("version", script_version)?;
+        lx.set("currentScriptInfo", script_info)?;
 
         let utils = Self::build_utils(ctx)?;
         lx.set("utils", utils)?;
@@ -381,10 +522,20 @@ impl JSScript {
         });
         lx.set("on", on_fn)?;
 
-        let send_fn = Func::from(move |_event_name: String, _data: Value<'js>| {
-            Ok::<_, rquickjs::Error>(())
-        });
-        lx.set("send", send_fn)?;
+        if let Some(inner_ref) = inner {
+            let send_fn = Func::from(move |event_name: String, data: Value<'js>| {
+                if event_name == EVENT_NAMES_INITED {
+                    Self::handle_inited(&data, &inner_ref);
+                }
+                Ok::<_, rquickjs::Error>(())
+            });
+            lx.set("send", send_fn)?;
+        } else {
+            let send_fn = Func::from(move |_event_name: String, _data: Value<'js>| {
+                Ok::<_, rquickjs::Error>(())
+            });
+            lx.set("send", send_fn)?;
+        }
 
         let request_fn = Self::build_request_fn(ctx, http)?;
         lx.set("request", request_fn)?;
@@ -397,6 +548,8 @@ impl JSScript {
         http: &HttpClient,
         captured_result: &Arc<std::sync::Mutex<Option<serde_json::Value>>>,
         captured_error: &Arc<std::sync::Mutex<Option<String>>>,
+        script_name: &str,
+        script_version: &str,
     ) -> JsResult<Object<'js>> {
         let lx = Object::new(ctx.clone())?;
 
@@ -404,7 +557,14 @@ impl JSScript {
         event_names.set("request", EVENT_NAMES_REQUEST)?;
         event_names.set("inited", EVENT_NAMES_INITED)?;
         lx.set("EVENT_NAMES", event_names)?;
-        lx.set("version", "1.0.0")?;
+        lx.set("version", "1.2.0")?;
+
+        // Set env and currentScriptInfo for LX Music source compatibility
+        lx.set("env", "desktop")?;
+        let script_info = Object::new(ctx.clone())?;
+        script_info.set("name", script_name)?;
+        script_info.set("version", script_version)?;
+        lx.set("currentScriptInfo", script_info)?;
 
         let utils = Self::build_utils(ctx)?;
         lx.set("utils", utils)?;
@@ -412,10 +572,11 @@ impl JSScript {
         let result_sink = captured_result.clone();
         let err_sink = captured_error.clone();
 
-        let lx_for_on = lx.clone();
-        let on_fn = Func::from(move |event_name: String, handler: Function<'js>| {
+        // 核心修复：严禁在闭包中捕获 ctx.clone()，改为通过传入的 js_ctx 获取 globals
+        let on_fn = Func::from(move |js_ctx: Ctx<'js>, event_name: String, handler: Function<'js>| {
             if event_name == EVENT_NAMES_REQUEST {
-                let _ = lx_for_on.set("_lx_handler", handler);
+                let globals = js_ctx.globals();
+                let _ = globals.set("_lx_handler", handler);
             }
             Ok::<_, rquickjs::Error>(())
         });
@@ -434,9 +595,9 @@ impl JSScript {
         lx.set("request", request_fn)?;
 
         // Add helper function to capture results
-        let ctx_for_capture = ctx.clone();
-        let capture_fn = Func::from(move |result: Value<'js>| {
-            if let Ok(Some(s)) = ctx_for_capture.json_stringify(&result) {
+        // 核心修复：通过传入的 Ctx 进行操作，避免捕获外部 ctx 引发 GC 泄漏
+        let capture_fn = Func::from(move |js_ctx: Ctx<'js>, result: Value<'js>| {
+            if let Ok(Some(s)) = js_ctx.json_stringify(&result) {
                 if let Ok(json_str) = s.to_string() {
                     if let Ok(v) = serde_json::from_str::<serde_json::Value>(&json_str) {
                         let mut guard = result_sink2.lock().unwrap();
@@ -478,9 +639,8 @@ impl JSScript {
         });
         crypto.set("md5", md5_fn)?;
 
-        let ctx_aes = ctx.clone();
         let aes_encrypt_fn = Func::from(
-            move |data: String, key: String, iv: String| -> JsResult<String> {
+            move |js_ctx: Ctx<'js>, data: String, key: String, iv: String| -> JsResult<String> {
                 type Aes128CbcEnc = cbc::Encryptor<Aes128>;
                 type Aes192CbcEnc = cbc::Encryptor<aes::Aes192>;
                 type Aes256CbcEnc = cbc::Encryptor<aes::Aes256>;
@@ -489,7 +649,7 @@ impl JSScript {
                 let iv_bytes = iv.as_bytes();
 
                 if key_bytes.len() < 16 || iv_bytes.len() < 16 {
-                    return Err(Exception::throw_message(&ctx_aes, "Invalid key or IV length"));
+                    return Err(Exception::throw_message(&js_ctx, "Invalid key or IV length"));
                 }
 
                 let data_len = data.len();
@@ -497,24 +657,24 @@ impl JSScript {
 
                 let encrypted = if key_bytes.len() >= 32 {
                     let cipher = Aes256CbcEnc::new_from_slices(&key_bytes[..32], &iv_bytes[..16])
-                        .map_err(|_| Exception::throw_message(&ctx_aes, "AES cipher init failed"))?;
+                        .map_err(|_| Exception::throw_message(&js_ctx, "AES cipher init failed"))?;
                     let mut out = vec![0u8; data_bytes.len()];
                     out.copy_from_slice(&data_bytes);
-                    cipher.encrypt_padded_mut::<cbc::cipher::block_padding::Pkcs7>(&mut out, data_len).map_err(|_| Exception::throw_message(&ctx_aes, "AES encrypt failed"))?;
+                    cipher.encrypt_padded_mut::<cbc::cipher::block_padding::Pkcs7>(&mut out, data_len).map_err(|_| Exception::throw_message(&js_ctx, "AES encrypt failed"))?;
                     out
                 } else if key_bytes.len() >= 24 {
                     let cipher = Aes192CbcEnc::new_from_slices(&key_bytes[..24], &iv_bytes[..16])
-                        .map_err(|_| Exception::throw_message(&ctx_aes, "AES cipher init failed"))?;
+                        .map_err(|_| Exception::throw_message(&js_ctx, "AES cipher init failed"))?;
                     let mut out = vec![0u8; data_bytes.len()];
                     out.copy_from_slice(&data_bytes);
-                    cipher.encrypt_padded_mut::<cbc::cipher::block_padding::Pkcs7>(&mut out, data_len).map_err(|_| Exception::throw_message(&ctx_aes, "AES encrypt failed"))?;
+                    cipher.encrypt_padded_mut::<cbc::cipher::block_padding::Pkcs7>(&mut out, data_len).map_err(|_| Exception::throw_message(&js_ctx, "AES encrypt failed"))?;
                     out
                 } else {
                     let cipher = Aes128CbcEnc::new_from_slices(&key_bytes[..16], &iv_bytes[..16])
-                        .map_err(|_| Exception::throw_message(&ctx_aes, "AES cipher init failed"))?;
+                        .map_err(|_| Exception::throw_message(&js_ctx, "AES cipher init failed"))?;
                     let mut out = vec![0u8; data_bytes.len()];
                     out.copy_from_slice(&data_bytes);
-                    cipher.encrypt_padded_mut::<cbc::cipher::block_padding::Pkcs7>(&mut out, data_len).map_err(|_| Exception::throw_message(&ctx_aes, "AES encrypt failed"))?;
+                    cipher.encrypt_padded_mut::<cbc::cipher::block_padding::Pkcs7>(&mut out, data_len).map_err(|_| Exception::throw_message(&js_ctx, "AES encrypt failed"))?;
                     out
                 };
 
@@ -523,9 +683,8 @@ impl JSScript {
         );
         crypto.set("aesEncrypt", aes_encrypt_fn)?;
 
-        let ctx_rsa = ctx.clone();
         let rsa_encrypt_fn = Func::from(
-            move |data: String, public_key: String| -> JsResult<String> {
+            move |js_ctx: Ctx<'js>, data: String, public_key: String| -> JsResult<String> {
                 let pkcs8_pem = if public_key.starts_with("-----BEGIN PUBLIC KEY-----") {
                     public_key
                 } else {
@@ -534,7 +693,7 @@ impl JSScript {
 
                 let rsa_key =
                     RsaPublicKey::from_public_key_pem(&pkcs8_pem)
-                        .map_err(|_| Exception::throw_message(&ctx_rsa, "Invalid RSA key"))?;
+                        .map_err(|_| Exception::throw_message(&js_ctx, "Invalid RSA key"))?;
 
                 let mut rng = OsRng;
                 let encrypted = rsa_key
@@ -543,7 +702,7 @@ impl JSScript {
                         rsa::Oaep::new::<sha2::Sha256>(),
                         data.as_bytes(),
                     )
-                    .map_err(|_| Exception::throw_message(&ctx_rsa, "RSA encryption failed"))?;
+                    .map_err(|_| Exception::throw_message(&js_ctx, "RSA encryption failed"))?;
 
                 Ok(STANDARD.encode(&encrypted))
             },
@@ -674,7 +833,7 @@ impl JSScript {
     }
 
     fn execute_http_blocking(
-        _http: &HttpClient,
+        http: &HttpClient,
         method: &str,
         url: &str,
         headers: &[(String, String)],
@@ -683,17 +842,19 @@ impl JSScript {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|e| crate::core::error::AppError::SourceError(e.to_string()))?;
+            .map_err(|e| crate::core::error::AppError::SourceError(format!("Failed to build HTTP runtime: {}", e)))?;
 
         let url = url.to_string();
         let method_str = method.to_string();
         let headers_vec: Vec<(String, String)> = headers.to_vec();
         let body_opt = body.map(|s| s.to_string());
+        let _http_shared = http.clone();
 
         rt.block_on(async {
             let client = reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(8))
-                .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .timeout(std::time::Duration::from_secs(15))
+                .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+                .redirect(reqwest::redirect::Policy::limited(5))
                 .build()
                 .map_err(|e| crate::core::error::AppError::SourceError(e.to_string()))?;
 
@@ -740,14 +901,19 @@ impl JSScript {
                     let mut guard = inner.write().unwrap();
                     for pair in sources_obj.props::<String, Object<'_>>() {
                         if let Ok((source_id, info)) = pair {
-                            if let Ok(name) = info.get::<_, String>("name") {
-                                let config = JsSourceConfig { name };
-                                guard.sources_info.insert(source_id, config);
-                            }
+                            let name = info.get::<_, String>("name")
+                                .unwrap_or_else(|_| source_id.clone());
+                            let config = JsSourceConfig { name };
+                            guard.sources_info.insert(source_id, config);
                         }
                     }
+                    eprintln!("[DEBUG] handle_inited: captured {} sources: {:?}",
+                        guard.sources_info.len(),
+                        guard.sources_info.keys().collect::<Vec<_>>());
                 }
             }
+        } else {
+            eprintln!("[DEBUG] handle_inited: data is not an object");
         }
     }
 

@@ -79,6 +79,28 @@ pub async fn remove_source(
 }
 
 #[tauri::command]
+pub async fn save_sources_config(
+    state: State<'_, AppState>,
+    content: String,
+) -> Result<()> {
+    use std::fs;
+
+    // Validate JSON
+    let _: serde_json::Value = serde_json::from_str(&content).map_err(|e| {
+        crate::core::error::AppError::InvalidFormat(format!("Invalid JSON: {}", e))
+    })?;
+
+    let sources_file = state.app_dir.join("sources.json");
+    fs::write(&sources_file, &content)?;
+
+    // Reset load state to allow fresh loading
+    SOURCE_LOAD_STATE.store(0, Ordering::SeqCst);
+
+    eprintln!("[DEBUG] sources.json saved to {:?}", sources_file);
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<SourceInfo>> {
     use std::fs;
     
@@ -88,8 +110,19 @@ pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<So
     eprintln!("[DEBUG] load_sources_from_file: {:?}", sources_file);
     
     if !sources_file.exists() {
-        eprintln!("[DEBUG] 配置文件不存在");
-        return Ok(vec![]);
+        eprintln!("[DEBUG] 配置文件不存在，创建默认配置");
+        let default_config = serde_json::json!({
+            "sources": [
+                {
+                    "name": "huibq",
+                    "url": "https://raw.githubusercontent.com/pdone/lx-music-source/main/huibq/latest.js",
+                    "enabled": true
+                }
+            ]
+        });
+        let _ = fs::create_dir_all(app_dir);
+        let _ = fs::write(&sources_file, serde_json::to_string_pretty(&default_config).unwrap());
+        eprintln!("[DEBUG] 默认配置已写入 {:?}", sources_file);
     }
     
     let mut content = String::new();
@@ -128,18 +161,15 @@ pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<So
         eprintln!("[DEBUG] 音源正在加载，跳过重复加载");
         return Ok(state.source_mgr.list_sources().await);
     }
-    if load_state == 2 {
-        eprintln!("[DEBUG] 音源已加载，跳过重复加载");
-        return Ok(state.source_mgr.list_sources().await);
+    
+    // 如果已经加载过，但目前列表中没有音源，则允许重新加载
+    let current_sources = state.source_mgr.list_sources().await;
+    if load_state == 2 && !current_sources.is_empty() {
+        eprintln!("[DEBUG] 音源已加载且不为空，跳过重复加载");
+        return Ok(current_sources);
     }
 
-    if SOURCE_LOAD_STATE
-        .compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
-        eprintln!("[DEBUG] 音源加载状态竞争，跳过本次加载");
-        return Ok(state.source_mgr.list_sources().await);
-    }
+    SOURCE_LOAD_STATE.store(1, Ordering::SeqCst);
 
     let mut loaded = Vec::new();
     
@@ -171,8 +201,10 @@ pub async fn load_sources_from_file(state: State<'_, AppState>) -> Result<Vec<So
     if loaded.is_empty() {
         // 加载失败时允许后续重试
         SOURCE_LOAD_STATE.store(0, Ordering::SeqCst);
+        eprintln!("[DEBUG] 未能成功加载任何有效音源");
     } else {
         SOURCE_LOAD_STATE.store(2, Ordering::SeqCst);
+        eprintln!("[DEBUG] 成功加载 {} 个音源", loaded.len());
     }
     
     Ok(loaded)
