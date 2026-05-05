@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![左耳 Logo](./public/logo.png)
+![左耳 Logo](./public/logo.svg)
 
 **一个基于 Tauri 2.x + React 18 的跨平台桌面音乐播放器**
 

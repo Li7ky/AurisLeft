@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1DB954;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1ed760;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#grad1)"/>
+  
+  <!-- Ear outline (stylized) -->
+  <path d="M180 380 C160 360, 150 320, 160 280 C170 240, 190 200, 220 170 C250 140, 290 120, 330 110 C370 100, 410 100, 440 120 C470 140, 480 180, 475 220 C470 260, 450 300, 420 330 C390 360, 350 380, 310 390 C270 400, 230 395, 200 385 C190 382, 185 382, 180 380 Z" 
+        fill="white" opacity="0.95"/>
+  
+  <!-- Inner ear curve -->
+  <path d="M230 360 C210 340, 200 310, 210 280 C220 250, 240 220, 270 200 C300 180, 330 170, 360 175 C380 180, 390 190, 395 210 C400 230, 395 260, 380 285 C365 310, 340 330, 310 345 C280 360, 250 365, 230 360 Z" 
+        fill="#121212" opacity="0.15"/>
+  
+  <!-- Music note -->
+  <path d="M270 280 L270 200 C270 180, 285 165, 305 165 C325 165, 340 180, 340 200 C340 220, 325 235, 305 235 C295 235, 285 230, 280 220 L280 280 L270 280 Z" 
+        fill="#1DB954" opacity="0.9"/>
+  <circle cx="305" cy="235" r="25" fill="#1DB954" opacity="0.9"/>
+  
+  <!-- Sound waves -->
+  <path d="M180 240 C170 240, 165 245, 165 255 C165 265, 170 270, 180 270" 
+        stroke="white" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.8"/>
+  <path d="M160 220 C145 220, 135 230, 135 245 C135 260, 145 270, 160 270" 
+        stroke="white" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <path d="M140 200 C120 200, 105 215, 105 235 C105 255, 120 270, 140 270" 
+        stroke="white" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.4"/>
+</svg>
