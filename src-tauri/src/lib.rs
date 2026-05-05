@@ -38,6 +38,8 @@ pub struct AppState {
 
 /// Setup function called when Tauri application initializes
 pub fn setup(app: &mut tauri::App) -> Result<()> {
+    use std::io::Read;
+
     let app_dir = app
         .path()
         .app_data_dir()
@@ -50,6 +52,65 @@ pub fn setup(app: &mut tauri::App) -> Result<()> {
     let http = HttpClient::new();
     let cache = HttpCache::new(1800, 500);
     let source_mgr = Arc::new(SourceManager::new(http.clone()));
+    
+    // 启动时自动加载 sources.json 中的音源
+    let sources_file = app_dir.join("sources.json");
+    eprintln!("[DEBUG] 尝试加载音源配置文件：{:?}", sources_file);
+    eprintln!("[DEBUG] 配置文件是否存在：{}", sources_file.exists());
+    
+    if sources_file.exists() {
+        if let Ok(mut file) = std::fs::File::open(&sources_file) {
+            let mut content = String::new();
+            if let Ok(_) = file.read_to_string(&mut content) {
+                eprintln!("[DEBUG] 配置文件内容：{}", content);
+                if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(sources) = config.as_object().and_then(|o| o.get("sources")).and_then(|v| v.as_array()) {
+                        eprintln!("[DEBUG] 找到 {} 个音源配置", sources.len());
+                        for source in sources {
+                            if let (Some(name), Some(url), Some(enabled)) = (
+                                source.get("name").and_then(|v| v.as_str()),
+                                source.get("url").and_then(|v| v.as_str()),
+                                source.get("enabled").and_then(|v| v.as_bool())
+                            ) {
+                                eprintln!("[DEBUG] 处理音源：{} = {}, enabled={}", name, url, enabled);
+                                if enabled {
+                                    let http_clone = http.clone();
+                                    let mgr_clone = source_mgr.clone();
+                                    let url_clone = url.to_string();
+                                    let name_clone = name.to_string();
+                                    
+                                    tokio::spawn(async move {
+                                        eprintln!("[DEBUG] 下载音源：{} from {}", name_clone, url_clone);
+                                        match http_clone.get(&url_clone, None).await {
+                                            Ok(code) => {
+                                                eprintln!("[DEBUG] 下载成功，注册音源：{}", name_clone);
+                                                match mgr_clone.register_js_source(code).await {
+                                                    Ok(info) => eprintln!("[DEBUG] 音源注册成功：{} ({})", info.name, info.id),
+                                                    Err(e) => eprintln!("[DEBUG] 音源注册失败：{:?}", e),
+                                                }
+                                            }
+                                            Err(e) => eprintln!("[DEBUG] 下载失败：{:?}", e),
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    } else {
+                        eprintln!("[DEBUG] 配置文件中没有找到 sources 数组");
+                    }
+                } else {
+                    eprintln!("[DEBUG] JSON 解析失败");
+                }
+            } else {
+                eprintln!("[DEBUG] 读取文件内容失败");
+            }
+        } else {
+            eprintln!("[DEBUG] 打开文件失败");
+        }
+    } else {
+        eprintln!("[DEBUG] 配置文件不存在");
+    }
+    
     let audio = Arc::new(AudioEngine::new()?);
     let downloader = DownloadManager::new(download_dir);
     let sleep_timer = SleepTimer::new();
