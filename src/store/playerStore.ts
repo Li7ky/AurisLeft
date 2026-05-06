@@ -1,8 +1,15 @@
-import { create } from "zustand";
-import { listen } from "@tauri-apps/api/event";
-import { playSong, pausePlayback, resumePlayback, stopPlayback, seekTo, setVolume } from "../utils/tauri";
-import type { Song } from "../types";
-import { PlaybackState, Quality } from "../types";
+import { create } from 'zustand';
+import { listen } from '@tauri-apps/api/event';
+import {
+  playSong,
+  pausePlayback,
+  resumePlayback,
+  stopPlayback,
+  seekTo,
+  setVolume,
+} from '../utils/tauri';
+import type { Song } from '../types';
+import { PlaybackState, Quality } from '../types';
 
 interface PlaybackProgressEvent {
   elapsed: number;
@@ -88,7 +95,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   stop: async () => {
     try {
       await stopPlayback();
-      set({ currentSong: null, playbackState: PlaybackState.Idle, progress: 0, duration: 0, error: null });
+      set({
+        currentSong: null,
+        playbackState: PlaybackState.Idle,
+        progress: 0,
+        duration: 0,
+        error: null,
+      });
     } catch {
       set({ playbackState: PlaybackState.Error });
     }
@@ -169,7 +182,7 @@ export function subscribePlayerEvents() {
   if (eventUnlisteners.length > 0) return;
 
   // Progress updates from backend
-  listen<PlaybackProgressEvent>("playback-progress", (event) => {
+  listen<PlaybackProgressEvent>('playback-progress', (event) => {
     const { elapsed, total } = event.payload;
     usePlayerStore.getState().updateProgress(elapsed, total);
   }).then((unlisten) => {
@@ -177,14 +190,14 @@ export function subscribePlayerEvents() {
   });
 
   // Playback ended -> auto play next song
-  listen("playback-ended", () => {
+  listen('playback-ended', () => {
     usePlayerStore.getState().next();
   }).then((unlisten) => {
     eventUnlisteners.push(unlisten);
   });
 
   // Tray / hotkey: Play/Pause
-  listen("hotkey-play-pause", () => {
+  listen('hotkey-play-pause', () => {
     const { playbackState, pause, resume } = usePlayerStore.getState();
     if (playbackState === PlaybackState.Playing) {
       pause();
@@ -196,14 +209,14 @@ export function subscribePlayerEvents() {
   });
 
   // Tray / hotkey: Next
-  listen("hotkey-next", () => {
+  listen('hotkey-next', () => {
     usePlayerStore.getState().next();
   }).then((unlisten) => {
     eventUnlisteners.push(unlisten);
   });
 
   // Tray / hotkey: Previous
-  listen("hotkey-prev", () => {
+  listen('hotkey-prev', () => {
     usePlayerStore.getState().prev();
   }).then((unlisten) => {
     eventUnlisteners.push(unlisten);

@@ -1,20 +1,11 @@
-import { useEffect } from "react";
-import { useLocalMusic } from "../../hooks/useLocalMusic";
-import type { LocalSong } from "../../types";
-import "./index.css";
+import { useEffect } from 'react';
+import { useLocalMusic } from '../../hooks/useLocalMusic';
+import type { LocalSong } from '../../types';
+import './index.css';
 
 export default function LocalMusic() {
-  const {
-    localSongs,
-    scanning,
-    scanProgress,
-    scanDirs,
-    scan,
-    play,
-    addDir,
-    removeDir,
-    loadDirs,
-  } = useLocalMusic();
+  const { localSongs, scanning, scanProgress, scanDirs, scan, play, addDir, removeDir, loadDirs } =
+    useLocalMusic();
 
   useEffect(() => {
     loadDirs();
@@ -23,7 +14,7 @@ export default function LocalMusic() {
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -46,7 +37,7 @@ export default function LocalMusic() {
             onClick={scan}
             disabled={scanning}
           >
-            {scanning ? "扫描中..." : "扫描音乐"}
+            {scanning ? '扫描中...' : '扫描音乐'}
           </button>
         </div>
       </div>
@@ -71,7 +62,7 @@ export default function LocalMusic() {
       )}
 
       {scanProgress && (
-        <div className={`local-music__status${scanning ? " local-music__status--scanning" : ""}`}>
+        <div className={`local-music__status${scanning ? ' local-music__status--scanning' : ''}`}>
           {scanProgress}
         </div>
       )}

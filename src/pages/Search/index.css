@@ -49,8 +49,13 @@
 }
 
 @keyframes pulse-text {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .search-page__pagination {
@@ -69,7 +74,9 @@
   color: var(--text-base);
   border: none;
   cursor: pointer;
-  transition: transform var(--transition-fast), background var(--transition-fast);
+  transition:
+    transform var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .search-page__page-btn:hover:not(:disabled) {

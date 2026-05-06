@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
-import { useSearchStore } from "../../store/searchStore";
-import "./SearchBar.css";
+import { useState, useEffect, useRef } from 'react';
+import { useSearchStore } from '../../store/searchStore';
+import './SearchBar.css';
 
 export default function SearchBar() {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const search = useSearchStore((s) => s.search);
   const clearResults = useSearchStore((s) => s.clearResults);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -29,7 +29,17 @@ export default function SearchBar() {
 
   return (
     <div className="search-bar">
-      <svg className="search-bar__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        className="search-bar__icon"
+        viewBox="0 0 24 24"
+        width="20"
+        height="20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <circle cx="11" cy="11" r="8" />
         <line x1="21" y1="21" x2="16.65" y2="16.65" />
       </svg>

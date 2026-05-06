@@ -1,7 +1,7 @@
-import { create } from "zustand";
-import { searchMusic } from "../utils/tauri";
-import type { Song, SearchResult } from "../types";
-import { Quality } from "../types";
+import { create } from 'zustand';
+import { searchMusic } from '../utils/tauri';
+import type { Song, SearchResult } from '../types';
+import { Quality } from '../types';
 
 interface SearchState {
   keyword: string;
@@ -25,7 +25,7 @@ interface SearchActions {
 type SearchStore = SearchState & SearchActions;
 
 export const useSearchStore = create<SearchStore>((set, get) => ({
-  keyword: "",
+  keyword: '',
   results: new Map(),
   loading: false,
   page: 1,
@@ -72,6 +72,6 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
   },
 
   clearResults: () => {
-    set({ keyword: "", results: new Map(), page: 1, hasMore: true, error: null });
+    set({ keyword: '', results: new Map(), page: 1, hasMore: true, error: null });
   },
 }));

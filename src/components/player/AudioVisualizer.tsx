@@ -1,7 +1,7 @@
-import { useRef, useEffect } from "react";
-import { usePlayerStore } from "../../store/playerStore";
-import { PlaybackState } from "../../types";
-import "./AudioVisualizer.css";
+import { useRef, useEffect } from 'react';
+import { usePlayerStore } from '../../store/playerStore';
+import { PlaybackState } from '../../types';
+import './AudioVisualizer.css';
 
 function getComputedColor(varName: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
@@ -16,14 +16,14 @@ export function AudioVisualizer() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const bufferLength = 64;
     const dataArray = new Uint8Array(bufferLength);
 
-    const accentColor = getComputedColor("--accent") || "#1DB954";
-    const primaryColor = getComputedColor("--primary") || "#1ed760";
+    const accentColor = getComputedColor('--accent') || '#1DB954';
+    const primaryColor = getComputedColor('--primary') || '#1ed760';
 
     const draw = () => {
       animFrameRef.current = requestAnimationFrame(draw);
@@ -35,8 +35,7 @@ export function AudioVisualizer() {
 
       if (isPlaying) {
         for (let i = 0; i < bufferLength; i++) {
-          dataArray[i] =
-            Math.random() * 80 + Math.sin(Date.now() / 200 + i * 0.5) * 40 + 40;
+          dataArray[i] = Math.random() * 80 + Math.sin(Date.now() / 200 + i * 0.5) * 40 + 40;
           dataArray[i] = Math.min(255, Math.max(0, dataArray[i]));
         }
       } else {
@@ -61,7 +60,12 @@ export function AudioVisualizer() {
           ctx.lineTo(x, height - barHeight + radius);
           ctx.quadraticCurveTo(x, height - barHeight, x + radius, height - barHeight);
           ctx.lineTo(x + barWidth - radius, height - barHeight);
-          ctx.quadraticCurveTo(x + barWidth, height - barHeight, x + barWidth, height - barHeight + radius);
+          ctx.quadraticCurveTo(
+            x + barWidth,
+            height - barHeight,
+            x + barWidth,
+            height - barHeight + radius
+          );
           ctx.lineTo(x + barWidth, height);
           ctx.closePath();
           ctx.fill();

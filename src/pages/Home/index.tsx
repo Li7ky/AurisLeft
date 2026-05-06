@@ -1,10 +1,10 @@
-import { usePlayerStore } from "../../store/playerStore";
-import { usePlaylistStore } from "../../store/playlistStore";
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { PlaybackState } from "../../types";
-import LyricDisplay from "../../components/lyric/LyricDisplay";
-import "./index.css";
+import { usePlayerStore } from '../../store/playerStore';
+import { usePlaylistStore } from '../../store/playlistStore';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { PlaybackState } from '../../types';
+import LyricDisplay from '../../components/lyric/LyricDisplay';
+import './index.css';
 
 export default function Home() {
   const currentSong = usePlayerStore((s) => s.currentSong);
@@ -20,15 +20,15 @@ export default function Home() {
   const showLyric = currentSong && playbackState !== PlaybackState.Idle;
 
   const quickActions = [
-    { label: "搜索音乐", icon: "🔍", action: () => navigate("/search") },
-    { label: "本地音乐", icon: "💿", action: () => navigate("/local") },
-    { label: "播放列表", icon: "🎵", action: () => navigate("/playlist") },
-    { label: "下载管理", icon: "⬇️", action: () => navigate("/download") },
+    { label: '搜索音乐', icon: '🔍', action: () => navigate('/search') },
+    { label: '本地音乐', icon: '💿', action: () => navigate('/local') },
+    { label: '播放列表', icon: '🎵', action: () => navigate('/playlist') },
+    { label: '下载管理', icon: '⬇️', action: () => navigate('/download') },
   ];
 
   return (
     <div className="home-page home-page--compact">
-      <div className={`home-page__content${showLyric ? " home-page__content--with-lyric" : ""}`}>
+      <div className={`home-page__content${showLyric ? ' home-page__content--with-lyric' : ''}`}>
         {!showLyric && (
           <>
             {/* 快捷入口 */}
@@ -52,10 +52,7 @@ export default function Home() {
               <div className="home-page__section-header">
                 <h3 className="home-page__section-title">我的歌单</h3>
                 {playlists.length > 0 && (
-                  <button 
-                    className="home-page__view-all"
-                    onClick={() => navigate("/playlist")}
-                  >
+                  <button className="home-page__view-all" onClick={() => navigate('/playlist')}>
                     查看全部
                   </button>
                 )}
@@ -64,22 +61,25 @@ export default function Home() {
                 <div className="home-page__empty-text">
                   <div className="home-page__empty-icon">🎵</div>
                   <div>暂无歌单</div>
-                  <button 
-                    className="home-page__create-btn"
-                    onClick={() => navigate("/playlist")}
-                  >
+                  <button className="home-page__create-btn" onClick={() => navigate('/playlist')}>
                     创建第一个歌单
                   </button>
                 </div>
               ) : (
                 <div className="home-page__grid">
                   {playlists.slice(0, 6).map((pl) => (
-                    <div key={pl.id} className="home-compact-card" onClick={() => navigate("/playlist")}>
+                    <div
+                      key={pl.id}
+                      className="home-compact-card"
+                      onClick={() => navigate('/playlist')}
+                    >
                       <div className="home-compact-card__cover">
                         <span className="home-compact-card__cover-icon">♪</span>
                       </div>
                       <div className="home-compact-card__meta">
-                        <div className="home-compact-card__name" title={pl.name}>{pl.name}</div>
+                        <div className="home-compact-card__name" title={pl.name}>
+                          {pl.name}
+                        </div>
                         <div className="home-compact-card__sub">{pl.songCount} 首</div>
                       </div>
                     </div>

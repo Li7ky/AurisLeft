@@ -1,10 +1,6 @@
-import { useState, useEffect } from "react";
-import { listen } from "@tauri-apps/api/event";
-import {
-  startSleepTimer,
-  cancelSleepTimer,
-  getSleepTimerStatus,
-} from "../utils/tauri";
+import { useState, useEffect } from 'react';
+import { listen } from '@tauri-apps/api/event';
+import { startSleepTimer, cancelSleepTimer, getSleepTimerStatus } from '../utils/tauri';
 
 export function useSleepTimer() {
   const [isActive, setIsActive] = useState(false);
@@ -34,7 +30,7 @@ export function useSleepTimer() {
   };
 
   useEffect(() => {
-    const unlistenPromise = listen("sleep-timer-tick", (event) => {
+    const unlistenPromise = listen('sleep-timer-tick', (event) => {
       const payload = event.payload as { remaining_seconds: number; is_active: boolean };
       setIsActive(payload.is_active);
       setRemaining(payload.remaining_seconds);

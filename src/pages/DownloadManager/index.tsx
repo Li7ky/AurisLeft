@@ -1,20 +1,20 @@
-import { useDownloadStore } from "../../store/downloadStore";
-import { DownloadStatus } from "../../types";
-import "./index.css";
+import { useDownloadStore } from '../../store/downloadStore';
+import { DownloadStatus } from '../../types';
+import './index.css';
 
 export default function DownloadManager() {
   const { tasks, clearCompleted } = useDownloadStore();
 
-  const statusText = (task: typeof tasks[0]) => {
+  const statusText = (task: (typeof tasks)[0]) => {
     switch (task.status) {
       case DownloadStatus.Downloading:
         return `下载中 ${task.progress}%`;
       case DownloadStatus.Completed:
-        return "已完成";
+        return '已完成';
       case DownloadStatus.Failed:
-        return `失败: ${task.error ?? "未知错误"}`;
+        return `失败: ${task.error ?? '未知错误'}`;
       default:
-        return "";
+        return '';
     }
   };
 
@@ -40,7 +40,9 @@ export default function DownloadManager() {
               <div className="download-manager__row">
                 <div className="download-manager__song-info">
                   <span className="download-manager__song-name">{task.songName}</span>
-                  <span className={`download-manager__status download-manager__status--${task.status}`}>
+                  <span
+                    className={`download-manager__status download-manager__status--${task.status}`}
+                  >
                     {statusText(task)}
                   </span>
                 </div>

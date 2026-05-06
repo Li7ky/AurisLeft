@@ -33,13 +33,7 @@
 
 .lyric-display--fullscreen {
   padding: 60px 0;
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 15%,
-    black 85%,
-    transparent 100%
-  );
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0%,
@@ -59,7 +53,10 @@
   font-size: 22px;
   line-height: 1.95;
   color: color-mix(in srgb, var(--text-secondary) 92%, white 8%);
-  transition: transform 0.25s ease, color 0.25s ease, opacity 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    color 0.25s ease,
+    opacity 0.25s ease;
   text-align: center;
   padding: 8px 20px;
   cursor: pointer;
