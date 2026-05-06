@@ -1,7 +1,7 @@
 import React from 'react';
-import Sidebar from './Sidebar';
-import TopBar from './TopBar';
-import PlayerBar from '../player/PlayerBar';
+import Sidebar from './Sidebar.tsx';
+import TopBar from './TopBar.tsx';
+import PlayerBar from '../player/PlayerBar.tsx';
 // import RightPanel from "./RightPanel"; // 后续实现
 import './AppLayout.css';
 

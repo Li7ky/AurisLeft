@@ -37,8 +37,6 @@
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--decorative-border);
   z-index: var(--z-topbar);
-  /* Tauri 窗口拖拽区 */
-  data-tauri-drag-region: true;
 }
 
 .top-bar__left {
@@ -67,6 +65,7 @@
   letter-spacing: -0.02em;
   background: var(--accent-gradient);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
