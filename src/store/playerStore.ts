@@ -1,14 +1,15 @@
 import { create } from 'zustand';
 import { listen } from '@tauri-apps/api/event';
 import {
-  playSong,
-  pausePlayback,
-  resumePlayback,
-  stopPlayback,
-  seekTo,
-  setVolume,
+  playSong as tauriPlaySong,
+  pausePlayback as tauriPausePlayback,
+  resumePlayback as tauriResumePlayback,
+  stopPlayback as tauriStopPlayback,
+  seekTo as tauriSeekTo,
+  setVolume as tauriSetVolume,
 } from '../utils/tauri';
 import type { Song } from '../types';
+import { audioEngine } from '../core/audioEngine';
 import { PlaybackState, Quality } from '../types';
 
 interface PlaybackProgressEvent {
@@ -60,8 +61,20 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   play: async (song: Song, quality?: Quality, toast?: ToastFn) => {
     const q = quality ?? get().quality;
     set({ currentSong: song, playbackState: PlaybackState.Loading, error: null });
+    
+    // Check if we are running in Tauri or Browser
+    const isTauri = Boolean(window.__TAURI__);
+
     try {
-      await playSong(song, q);
+      if (isTauri) {
+        await tauriPlaySong(song, q);
+      } else {
+        // Mock Browser fallback using local asset or direct URL
+        // In real app, we need to fetch the actual stream URL via Source
+        const mockUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        await audioEngine.play(mockUrl);
+        audioEngine.setVolume(get().volume);
+      }
       set({ playbackState: PlaybackState.Playing });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -71,8 +84,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   pause: async (toast?: ToastFn) => {
+    const isTauri = Boolean(window.__TAURI__);
     try {
-      await pausePlayback();
+      if (isTauri) {
+        await tauriPausePlayback();
+      } else {
+        audioEngine.pause();
+      }
       set({ playbackState: PlaybackState.Paused });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -82,8 +100,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   resume: async (toast?: ToastFn) => {
+    const isTauri = Boolean(window.__TAURI__);
     try {
-      await resumePlayback();
+      if (isTauri) {
+        await tauriResumePlayback();
+      } else {
+        // audioEngine resumes by calling play() without changing src
+        await audioEngine.play(''); 
+      }
       set({ playbackState: PlaybackState.Playing });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -93,8 +117,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   stop: async () => {
+    const isTauri = Boolean(window.__TAURI__);
     try {
-      await stopPlayback();
+      if (isTauri) {
+        await tauriStopPlayback();
+      } else {
+        audioEngine.pause();
+        audioEngine.seek(0);
+      }
       set({
         currentSong: null,
         playbackState: PlaybackState.Idle,
@@ -108,8 +138,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   seek: async (position: number, toast?: ToastFn) => {
+    const isTauri = Boolean(window.__TAURI__);
     try {
-      await seekTo(position);
+      if (isTauri) {
+        await tauriSeekTo(position);
+      } else {
+        audioEngine.seek(position);
+      }
       set({ progress: position });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -119,8 +154,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   setVolume: async (volume: number, toast?: ToastFn) => {
+    const isTauri = Boolean(window.__TAURI__);
     try {
-      await setVolume(volume);
+      if (isTauri) {
+        await tauriSetVolume(volume);
+      } else {
+        audioEngine.setVolume(volume);
+      }
       set({ volume });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
