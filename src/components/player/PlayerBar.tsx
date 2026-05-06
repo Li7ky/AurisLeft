@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { usePlayerStore } from '../../store/playerStore';
+import { PlaybackState } from '../../types';
+import { useToast } from '../common/Toast/useToast';
 import {
   Play,
   Pause,
@@ -17,10 +20,32 @@ import {
 import './PlayerBar.css';
 
 export default function PlayerBar() {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(35);
-  const [volume, setVolume] = useState(80);
+  const toast = useToast();
+  const {
+    currentSong,
+    playbackState,
+    progress,
+    duration,
+    volume,
+    pause,
+    resume,
+    seek,
+    setVolume,
+    next,
+    prev,
+  } = usePlayerStore();
+
+  const isPlaying = playbackState === PlaybackState.Playing;
   const [isLiked, setIsLiked] = useState(false);
+
+  // 格式化时间 00:00
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
 
   return (
     <footer className="player-bar">
@@ -32,14 +57,18 @@ export default function PlayerBar() {
             /* TODO: 展开歌词详情页 */
           }}
         >
-          <div className="player-bar__cover" />
+          {currentSong?.coverUrl ? (
+            <img src={currentSong.coverUrl} alt={currentSong.name} className="player-bar__cover" />
+          ) : (
+            <div className="player-bar__cover" />
+          )}
           <div className="player-bar__cover-hover">
             <Maximize2 size={16} />
           </div>
         </div>
         <div className="player-bar__metadata">
           <div className="player-bar__song-title">
-            <span className="truncate">七里香 (Common Jasmine Orange)</span>
+            <span className="truncate">{currentSong?.name || '未知曲目'}</span>
             <button
               className={`btn--icon ${isLiked ? 'player-bar__heart--active' : ''}`}
               onClick={() => setIsLiked(!isLiked)}
@@ -47,7 +76,10 @@ export default function PlayerBar() {
               <Heart size={16} fill={isLiked ? 'var(--accent-magenta)' : 'none'} />
             </button>
           </div>
-          <div className="player-bar__artist-name truncate">周杰伦 - 七里香</div>
+          <div className="player-bar__artist-name truncate">
+            {currentSong?.artist || '未知艺人'}
+            {currentSong?.album ? ` - ${currentSong.album}` : ''}
+          </div>
         </div>
       </div>
 
@@ -57,12 +89,12 @@ export default function PlayerBar() {
           <button className="btn--icon btn--sm" title="随机播放">
             <Shuffle size={16} />
           </button>
-          <button className="btn--icon" title="上一首">
+          <button className="btn--icon" title="上一首" onClick={() => prev(toast.addToast)}>
             <SkipBack size={22} fill="currentColor" />
           </button>
           <button
             className="btn btn--primary player-bar__play-btn"
-            onClick={() => setIsPlaying(!isPlaying)}
+            onClick={() => (isPlaying ? pause(toast.addToast) : resume(toast.addToast))}
             title={isPlaying ? '暂停' : '播放'}
           >
             {isPlaying ? (
@@ -71,7 +103,7 @@ export default function PlayerBar() {
               <Play size={24} fill="currentColor" style={{ marginLeft: 2 }} />
             )}
           </button>
-          <button className="btn--icon" title="下一首">
+          <button className="btn--icon" title="下一首" onClick={() => next(toast.addToast)}>
             <SkipForward size={22} fill="currentColor" />
           </button>
           <button className="btn--icon btn--sm" title="循环播放">
@@ -80,17 +112,19 @@ export default function PlayerBar() {
         </div>
 
         <div className="player-bar__progress-container">
-          <span className="player-bar__time">01:24</span>
+          <span className="player-bar__time">{formatTime(progress)}</span>
           <div className="player-bar__slider-wrapper">
             <input
               type="range"
               className="player-bar__progress-slider"
+              min={0}
+              max={duration || 100}
               value={progress}
-              onChange={(e) => setProgress(Number(e.target.value))}
+              onChange={(e) => seek(Number(e.target.value), toast.addToast)}
             />
-            <div className="player-bar__progress-active" style={{ width: `${progress}%` }} />
+            <div className="player-bar__progress-active" style={{ width: `${progressPercent}%` }} />
           </div>
-          <span className="player-bar__time">04:47</span>
+          <span className="player-bar__time">{formatTime(duration)}</span>
         </div>
       </div>
 
@@ -112,10 +146,13 @@ export default function PlayerBar() {
             <input
               type="range"
               className="player-bar__volume-slider"
+              min={0}
+              max={1}
+              step={0.01}
               value={volume}
-              onChange={(e) => setVolume(Number(e.target.value))}
+              onChange={(e) => setVolume(Number(e.target.value), toast.addToast)}
             />
-            <div className="player-bar__progress-active" style={{ width: `${volume}%` }} />
+            <div className="player-bar__progress-active" style={{ width: `${volume * 100}%` }} />
           </div>
         </div>
 
