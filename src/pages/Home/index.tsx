@@ -1,16 +1,16 @@
-import { usePlayerStore } from '../../store/playerStore';
-import { usePlaylistStore } from '../../store/playlistStore';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePlayerStore } from '../../store/playerStore';
+import { usePlaylistStore } from '../../store/playlistStore';
 import { PlaybackState } from '../../types';
 import LyricDisplay from '../../components/lyric/LyricDisplay';
+import { Section } from '../../components/common/Section';
+import { MediaCard } from '../../components/common/MediaCard';
 import './index.css';
 
 export default function Home() {
-  const currentSong = usePlayerStore((s) => s.currentSong);
-  const playbackState = usePlayerStore((s) => s.playbackState);
-  const playlists = usePlaylistStore((s) => s.playlists);
-  const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists);
+  const { currentSong, playbackState } = usePlayerStore();
+  const { playlists, loadPlaylists } = usePlaylistStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,99 +19,81 @@ export default function Home() {
 
   const showLyric = currentSong && playbackState !== PlaybackState.Idle;
 
-  const quickActions = [
-    { label: '搜索音乐', icon: '🔍', action: () => navigate('/search') },
-    { label: '本地音乐', icon: '💿', action: () => navigate('/local') },
-    { label: '播放列表', icon: '🎵', action: () => navigate('/playlist') },
-    { label: '下载管理', icon: '⬇️', action: () => navigate('/download') },
+  // 测试用 Mock 数据
+  const recentPlays = [
+    { id: '1', title: '七里香', subtitle: '周杰伦', type: 'album' as const },
+    { id: '2', title: '1989', subtitle: 'Taylor Swift', type: 'album' as const },
+    { id: '3', title: 'This Is Jay Chou', subtitle: 'Playlist', type: 'playlist' as const },
+    { id: '4', title: '林俊杰', subtitle: 'Artist', type: 'artist' as const },
+    { id: '5', title: 'Lover', subtitle: 'Taylor Swift', type: 'album' as const },
+    { id: '6', title: 'G.E.M.', subtitle: 'Artist', type: 'artist' as const },
   ];
 
   return (
-    <div className="home-page home-page--compact">
-      <div className={`home-page__content${showLyric ? ' home-page__content--with-lyric' : ''}`}>
-        {!showLyric && (
-          <>
-            {/* 快捷入口 */}
-            <section className="home-page__section home-page__section--featured">
-              <div className="home-page__quick-actions">
-                {quickActions.map((action) => (
-                  <button
-                    key={action.label}
-                    className="home-page__action-btn"
-                    onClick={action.action}
-                  >
-                    <span className="home-page__action-icon">{action.icon}</span>
-                    <span className="home-page__action-label">{action.label}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {/* 推荐歌单 */}
-            <section className="home-page__section">
-              <div className="home-page__section-header">
-                <h3 className="home-page__section-title">我的歌单</h3>
-                {playlists.length > 0 && (
-                  <button className="home-page__view-all" onClick={() => navigate('/playlist')}>
-                    查看全部
-                  </button>
-                )}
-              </div>
-              {playlists.length === 0 ? (
-                <div className="home-page__empty-text">
-                  <div className="home-page__empty-icon">🎵</div>
-                  <div>暂无歌单</div>
-                  <button className="home-page__create-btn" onClick={() => navigate('/playlist')}>
-                    创建第一个歌单
-                  </button>
-                </div>
+    <div className="home-page">
+      <div className={`home-page__content ${showLyric ? 'home-page__content--with-lyric' : ''}`}>
+        {!showLyric ? (
+          <div className="home-page__sections">
+            <Section title="我的歌单" onViewAll={() => navigate('/playlist')}>
+              {playlists.length > 0 ? (
+                playlists.slice(0, 6).map((pl) => (
+                  <MediaCard
+                    key={pl.id}
+                    id={String(pl.id)}
+                    title={pl.name}
+                    subtitle={`${pl.songCount} 首歌曲`}
+                    onClick={() => navigate(`/playlist/${pl.id}`)}
+                  />
+                ))
               ) : (
-                <div className="home-page__grid">
-                  {playlists.slice(0, 6).map((pl) => (
-                    <div
-                      key={pl.id}
-                      className="home-compact-card"
-                      onClick={() => navigate('/playlist')}
-                    >
-                      <div className="home-compact-card__cover">
-                        <span className="home-compact-card__cover-icon">♪</span>
-                      </div>
-                      <div className="home-compact-card__meta">
-                        <div className="home-compact-card__name" title={pl.name}>
-                          {pl.name}
-                        </div>
-                        <div className="home-compact-card__sub">{pl.songCount} 首</div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="home-page__empty">
+                  <p>暂无歌单，去创建一个吧</p>
+                  <button className="btn btn--primary" onClick={() => navigate('/playlist')}>
+                    创建歌单
+                  </button>
                 </div>
               )}
-            </section>
+            </Section>
 
-            {/* 最近播放 */}
-            <section className="home-page__section">
-              <h3 className="home-page__section-title">最近播放</h3>
-              <div className="home-page__grid">
-                <div className="home-compact-card home-compact-card--muted">
-                  <div className="home-compact-card__cover">
-                    <span className="home-compact-card__cover-icon">◌</span>
-                  </div>
-                  <div className="home-compact-card__meta">
-                    <div className="home-compact-card__name">暂无播放记录</div>
-                    <div className="home-compact-card__sub">播放歌曲后会在这里展示</div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </>
+            <Section title="最近播放">
+              {recentPlays.map((item) => (
+                <MediaCard
+                  key={item.id}
+                  id={item.id}
+                  title={item.title}
+                  subtitle={item.subtitle}
+                  type={item.type}
+                />
+              ))}
+            </Section>
+            
+            <Section title="为您推荐">
+              <MediaCard
+                id="rec-1"
+                title="每日新歌推荐"
+                subtitle="根据您的口味为您推荐"
+                type="playlist"
+              />
+              <MediaCard
+                id="rec-2"
+                title="华语流行"
+                subtitle="Playlist"
+                type="playlist"
+              />
+              <MediaCard
+                id="rec-3"
+                title="专注工作"
+                subtitle="白噪音与轻音乐"
+                type="playlist"
+              />
+            </Section>
+          </div>
+        ) : (
+          <div className="home-page__lyric-container">
+            <LyricDisplay lines={[]} />
+          </div>
         )}
       </div>
-
-      {showLyric && (
-        <div className="home-page__lyric-panel">
-          <LyricDisplay lines={[]} />
-        </div>
-      )}
     </div>
   );
 }
