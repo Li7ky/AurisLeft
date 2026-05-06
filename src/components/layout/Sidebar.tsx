@@ -1,9 +1,6 @@
-import React from 'react';
 import {
   Home,
   Compass,
-  Music2,
-  Mic2,
   Video,
   Radio,
   Library,

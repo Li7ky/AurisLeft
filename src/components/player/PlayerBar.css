@@ -129,6 +129,7 @@
 .player-bar__volume-slider {
   width: 100%;
   -webkit-appearance: none;
+  appearance: none;
   background: var(--bg-tinted);
   height: 4px;
   border-radius: 2px;
