@@ -27,9 +27,7 @@ class ErrorBoundary extends Component<Props, State> {
           <h2>出错了</h2>
           <p>应用遇到了一个意外错误。</p>
           <pre>{this.state.error?.message}</pre>
-          <button onClick={() => this.setState({ hasError: false, error: null })}>
-            重试
-          </button>
+          <button onClick={() => this.setState({ hasError: false, error: null })}>重试</button>
         </div>
       );
     }

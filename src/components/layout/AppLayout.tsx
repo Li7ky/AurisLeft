@@ -1,50 +1,32 @@
-import { NavLink } from "react-router-dom";
-import PlayerBar from "../player/PlayerBar";
-import "./AppLayout.css";
+import React from 'react';
+import Sidebar from './Sidebar';
+import TopBar from './TopBar';
+import PlayerBar from '../player/PlayerBar';
+// import RightPanel from "./RightPanel"; // 后续实现
+import './AppLayout.css';
 
-const NAV_ITEMS = [
-  { to: "/home", label: "首页", icon: "🏠" },
-  { to: "/search", label: "搜索", icon: "🔍" },
-  { to: "/local", label: "本地音乐", icon: "💿" },
-  { to: "/playlist", label: "播放列表", icon: "🎵" },
-  { to: "/download", label: "下载管理", icon: "⬇️" },
-  { to: "/settings", label: "设置", icon: "⚙️" },
-];
+interface AppLayoutProps {
+  children: React.ReactNode;
+}
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="app-layout">
-      <aside className="app-layout__sidebar">
-        <div className="app-layout__sidebar-top">
-          <div className="app-layout__logo">
-            <span className="app-layout__logo-icon">🎧</span>
-            <span className="app-layout__logo-text">左耳</span>
-          </div>
-          <nav className="app-layout__nav">
-            {NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  `app-layout__nav-link${isActive ? " app-layout__nav-link--active" : ""}`
-                }
-                end={item.to === "/home"}
-              >
-                <span className="app-layout__nav-icon">{item.icon}</span>
-                <span className="app-layout__nav-label">{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-        <div className="app-layout__sidebar-bottom">
-          <div className="app-layout__user">v0.1.0</div>
-        </div>
-      </aside>
+    <div className="app-container">
+      {/* 顶部全局导航栏 */}
+      <TopBar />
 
-      <div className="app-layout__main">
-        <main className="app-layout__content">{children}</main>
+      <div className="app-body">
+        {/* 左侧主导航区 */}
+        <Sidebar />
+
+        {/* 中央主内容区 */}
+        <main className="app-main">{children}</main>
+
+        {/* 右侧辅助信息区 (预留) */}
+        {/* <RightPanel /> */}
       </div>
 
+      {/* 底部全局播放控制栏 */}
       <PlayerBar />
     </div>
   );

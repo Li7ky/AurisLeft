@@ -12,7 +12,9 @@
   padding: var(--space-sm);
   background: var(--bg-elevated);
   border-radius: var(--radius-md);
-  transition: background var(--transition-fast), transform var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast);
   cursor: pointer;
 }
 
@@ -80,7 +82,10 @@
   justify-content: center;
   opacity: 0;
   transform: translateY(10px);
-  transition: opacity var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    background var(--transition-fast);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
   cursor: pointer;
 }
@@ -128,8 +133,13 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .search-results__empty {

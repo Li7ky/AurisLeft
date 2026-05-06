@@ -1,16 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
-import { useDrag, useDrop } from "react-dnd";
-import { usePlaylistStore } from "../../store/playlistStore";
-import { usePlayerStore } from "../../store/playerStore";
-import type { Playlist, PlaylistSong } from "../../types";
-import { Quality } from "../../types";
-import "./PlaylistPanel.css";
+import { useState, useEffect, useCallback } from 'react';
+import { useDrag, useDrop } from 'react-dnd';
+import { usePlaylistStore } from '../../store/playlistStore';
+import { usePlayerStore } from '../../store/playerStore';
+import type { Playlist, PlaylistSong } from '../../types';
+import { Quality } from '../../types';
+import './PlaylistPanel.css';
 
 function formatDuration(seconds: number | null): string {
-  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return "--:--";
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return '--:--';
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 interface SongRowProps {
@@ -26,13 +26,13 @@ function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
   const isActive = currentSong?.songId === song.songId && currentSong?.source === song.source;
 
   const [{ isDragging }, drag] = useDrag({
-    type: "playlist-song",
+    type: 'playlist-song',
     item: { index },
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
   });
 
   const [, drop] = useDrop({
-    accept: "playlist-song",
+    accept: 'playlist-song',
     hover: (draggedItem: { index: number }) => {
       if (draggedItem.index !== index) {
         moveRow(draggedItem.index, index);
@@ -48,7 +48,7 @@ function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
         id: song.songId,
         name: song.name,
         artist: song.artist,
-        album: song.album ?? "",
+        album: song.album ?? '',
         duration: song.duration ?? 0,
         coverUrl: song.coverUrl,
         source: song.source,
@@ -66,7 +66,7 @@ function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
           drag(drop(node));
         }) as React.Ref<HTMLDivElement>
       }
-      className={`playlist-row${isActive ? " playlist-row--active" : ""}${isDragging ? " playlist-row--dragging" : ""}`}
+      className={`playlist-row${isActive ? ' playlist-row--active' : ''}${isDragging ? ' playlist-row--dragging' : ''}`}
       onClick={handlePlay}
       onContextMenu={(e) => onContextMenu(e, song)}
     >
@@ -85,11 +85,17 @@ function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
           <div className="playlist-row__cover playlist-row__cover--placeholder" />
         )}
         <div className="playlist-row__title-text">
-          <div className="playlist-row__name" title={song.name}>{song.name}</div>
-          <div className="playlist-row__artist" title={song.artist}>{song.artist}</div>
+          <div className="playlist-row__name" title={song.name}>
+            {song.name}
+          </div>
+          <div className="playlist-row__artist" title={song.artist}>
+            {song.artist}
+          </div>
         </div>
       </div>
-      <div className="playlist-row__album" title={song.album ?? "--"}>{song.album ?? "--"}</div>
+      <div className="playlist-row__album" title={song.album ?? '--'}>
+        {song.album ?? '--'}
+      </div>
       <div className="playlist-row__duration">{formatDuration(song.duration)}</div>
       <div className="playlist-row__actions">
         <button className="playlist-row__more-btn" aria-label="更多操作">
@@ -112,16 +118,18 @@ interface AddToPlaylistDialogProps {
 function AddToPlaylistDialog({ song, onClose }: AddToPlaylistDialogProps) {
   const playlists = usePlaylistStore((s) => s.playlists);
   const addSong = usePlaylistStore((s) => s.addSong);
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState('');
 
-  const filtered = playlists.filter((pl) => pl.name.toLowerCase().includes(searchText.toLowerCase()));
+  const filtered = playlists.filter((pl) =>
+    pl.name.toLowerCase().includes(searchText.toLowerCase())
+  );
 
   const handleAdd = async (playlistId: number) => {
     await addSong(playlistId, {
       id: song.songId,
       name: song.name,
       artist: song.artist,
-      album: song.album ?? "",
+      album: song.album ?? '',
       duration: song.duration ?? 0,
       coverUrl: song.coverUrl,
       source: song.source,
@@ -145,7 +153,11 @@ function AddToPlaylistDialog({ song, onClose }: AddToPlaylistDialogProps) {
         />
         <div className="playlist-panel__dialog-list">
           {filtered.map((pl) => (
-            <button key={pl.id} className="playlist-panel__dialog-item" onClick={() => handleAdd(pl.id)}>
+            <button
+              key={pl.id}
+              className="playlist-panel__dialog-item"
+              onClick={() => handleAdd(pl.id)}
+            >
               <span>{pl.name}</span>
               <span className="playlist-panel__dialog-count">{pl.songCount}</span>
             </button>
@@ -154,7 +166,9 @@ function AddToPlaylistDialog({ song, onClose }: AddToPlaylistDialogProps) {
             <div className="playlist-panel__dialog-empty">未找到匹配的播放列表</div>
           )}
         </div>
-        <button className="playlist-panel__dialog-close" onClick={onClose}>关闭</button>
+        <button className="playlist-panel__dialog-close" onClick={onClose}>
+          关闭
+        </button>
       </div>
     </div>
   );
@@ -170,7 +184,11 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
   const removeSong = usePlaylistStore((s) => s.removeSong);
   const loadSongs = usePlaylistStore((s) => s.loadSongs);
   const reorderSongs = usePlaylistStore((s) => s.reorderSongs);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; song: PlaylistSong } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    song: PlaylistSong;
+  } | null>(null);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState<PlaylistSong | null>(null);
 
   useEffect(() => {
@@ -200,11 +218,14 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
 
   const closeContextMenu = () => setContextMenu(null);
 
-  const moveRow = useCallback((fromIndex: number, toIndex: number) => {
-    if (playlist) {
-      reorderSongs(playlist.id, fromIndex, toIndex);
-    }
-  }, [playlist, reorderSongs]);
+  const moveRow = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (playlist) {
+        reorderSongs(playlist.id, fromIndex, toIndex);
+      }
+    },
+    [playlist, reorderSongs]
+  );
 
   if (!playlist) {
     return (
@@ -220,8 +241,8 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
   }
 
   const createdDate = playlist.createdAt
-    ? new Date(playlist.createdAt).toLocaleDateString("zh-CN")
-    : "";
+    ? new Date(playlist.createdAt).toLocaleDateString('zh-CN')
+    : '';
 
   return (
     <div className="playlist-panel" onClick={closeContextMenu}>
@@ -271,15 +292,28 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
       ) : (
         <div className="playlist-panel__list">
           {songs.map((song, idx) => (
-            <SongRow key={song.id} song={song} index={idx} onContextMenu={handleContextMenu} moveRow={moveRow} />
+            <SongRow
+              key={song.id}
+              song={song}
+              index={idx}
+              onContextMenu={handleContextMenu}
+              moveRow={moveRow}
+            />
           ))}
         </div>
       )}
 
       {contextMenu && (
-        <div className="playlist-panel__context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
-          <button className="playlist-panel__context-item" onClick={handleRemove}>移除</button>
-          <button className="playlist-panel__context-item" onClick={handleAddToPlaylist}>添加到其他列表</button>
+        <div
+          className="playlist-panel__context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button className="playlist-panel__context-item" onClick={handleRemove}>
+            移除
+          </button>
+          <button className="playlist-panel__context-item" onClick={handleAddToPlaylist}>
+            添加到其他列表
+          </button>
         </div>
       )}
 

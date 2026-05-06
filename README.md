@@ -1,8 +1,8 @@
-# 左耳
+# AurisLeft
 
 <div align="center">
 
-![左耳 Logo](./public/logo.svg)
+![AurisLeft Logo](./public/logo.svg)
 
 **一个基于 Tauri 2.x + React 18 的跨平台桌面音乐播放器**
 
@@ -15,7 +15,7 @@
 
 ## 📖 项目简介
 
-左耳是一个现代化、轻量级的跨平台桌面音乐播放器，兼容洛雪音乐音源协议。采用 Tauri 2.x 作为桌面应用框架，React 18 构建用户界面，提供流畅的音乐播放体验和简洁的交互设计。
+AurisLeft 是一个现代化、轻量级的跨平台桌面音乐播放器，兼容洛雪音乐音源协议。采用 Tauri 2.x 作为桌面应用框架，React 18 构建用户界面，提供流畅的音乐播放体验和简洁的交互设计。
 
 本项目旨在为用户提供一个**开源、透明、可定制**的音乐播放解决方案，支持多音源接入、歌词显示、播放列表管理等核心功能。
 
@@ -152,8 +152,8 @@ npm run preview
 
 ### 报告问题
 
-- [提交 Bug](https://github.com/your-org/music-player/issues/new?template=bug_report.md)
-- [功能建议](https://github.com/your-org/music-player/issues/new?template=feature_request.md)
+- [提交 Bug](https://github.com/Li7ky/AurisLeft/issues/new?template=bug_report.md)
+- [功能建议](https://github.com/Li7ky/AurisLeft/issues/new?template=feature_request.md)
 
 ## 🙏 致谢
 
@@ -166,6 +166,6 @@ npm run preview
 
 <div align="center">
 
-Made by 左耳 Contributors
+Made by AurisLeft Contributors
 
 </div>

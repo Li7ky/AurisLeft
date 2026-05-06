@@ -1,14 +1,14 @@
-import { useRef, useEffect, useCallback } from "react";
-import { usePlayerStore } from "../../store/playerStore";
-import type { LyricLine } from "../../types";
-import "./LyricDisplay.css";
+import { useRef, useEffect, useCallback } from 'react';
+import { usePlayerStore } from '../../store/playerStore';
+import type { LyricLine } from '../../types';
+import './LyricDisplay.css';
 
 interface LyricDisplayProps {
   lines: LyricLine[];
-  mode?: "inline" | "fullscreen";
+  mode?: 'inline' | 'fullscreen';
 }
 
-export default function LyricDisplay({ lines, mode = "inline" }: LyricDisplayProps) {
+export default function LyricDisplay({ lines, mode = 'inline' }: LyricDisplayProps) {
   const progress = usePlayerStore((s) => s.progress);
   const seek = usePlayerStore((s) => s.seek);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,7 +35,7 @@ export default function LyricDisplay({ lines, mode = "inline" }: LyricDisplayPro
 
     container.scrollTo({
       top: targetScroll,
-      behavior: "smooth",
+      behavior: 'smooth',
     });
   }, [activeIndex]);
 
@@ -43,7 +43,7 @@ export default function LyricDisplay({ lines, mode = "inline" }: LyricDisplayPro
     (time: number) => {
       seek(time);
     },
-    [seek],
+    [seek]
   );
 
   if (!lines.length) {
@@ -57,9 +57,9 @@ export default function LyricDisplay({ lines, mode = "inline" }: LyricDisplayPro
   return (
     <div className={`lyric-display lyric-display--${mode}`} ref={containerRef}>
       {lines.map((line, i) => {
-        let cls = "lyric-line";
-        if (i === activeIndex) cls += " active";
-        else if (i < activeIndex) cls += " passed";
+        let cls = 'lyric-line';
+        if (i === activeIndex) cls += ' active';
+        else if (i < activeIndex) cls += ' passed';
         return (
           <div
             key={`${line.time}-${i}`}
@@ -67,7 +67,7 @@ export default function LyricDisplay({ lines, mode = "inline" }: LyricDisplayPro
             className={cls}
             onClick={() => handleLineClick(line.time)}
           >
-            {line.text || "\u00A0"}
+            {line.text || '\u00A0'}
           </div>
         );
       })}

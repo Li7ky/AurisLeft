@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { useSettingsStore } from "../../store/settingsStore";
-import { Quality } from "../../types";
-import type { ThemeConfig } from "../../types";
-import "./index.css";
+import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { useSettingsStore } from '../../store/settingsStore';
+import { Quality } from '../../types';
+import type { ThemeConfig } from '../../types';
+import './index.css';
 
 interface SourceInfo {
   id: string;
@@ -14,49 +14,43 @@ interface SourceInfo {
 
 const PRESET_THEMES: { name: string; theme: ThemeConfig }[] = [
   {
-    name: "默认绿",
+    name: '默认绿',
     theme: {
-      primary: "#1DB954",
-      background: "#121212",
-      surface: "#1e1e1e",
-      textPrimary: "#ffffff",
-      textSecondary: "#b3b3b3",
-      accent: "#1ed760",
+      primary: '#1DB954',
+      background: '#121212',
+      surface: '#1e1e1e',
+      textPrimary: '#ffffff',
+      textSecondary: '#b3b3b3',
+      accent: '#1ed760',
     },
   },
   {
-    name: "深海蓝",
+    name: '深海蓝',
     theme: {
-      primary: "#1a73e8",
-      background: "#0d1117",
-      surface: "#161b22",
-      textPrimary: "#e6edf3",
-      textSecondary: "#8b949e",
-      accent: "#58a6ff",
+      primary: '#1a73e8',
+      background: '#0d1117',
+      surface: '#161b22',
+      textPrimary: '#e6edf3',
+      textSecondary: '#8b949e',
+      accent: '#58a6ff',
     },
   },
   {
-    name: "暮光紫",
+    name: '暮光紫',
     theme: {
-      primary: "#8b5cf6",
-      background: "#13111c",
-      surface: "#1e1b2e",
-      textPrimary: "#ffffff",
-      textSecondary: "#a1a1aa",
-      accent: "#a78bfa",
+      primary: '#8b5cf6',
+      background: '#13111c',
+      surface: '#1e1b2e',
+      textPrimary: '#ffffff',
+      textSecondary: '#a1a1aa',
+      accent: '#a78bfa',
     },
   },
 ];
 
 export default function Settings() {
-  const {
-    theme,
-    defaultQuality,
-    autoPlayNext,
-    showLyric,
-    setTheme,
-    setSetting,
-  } = useSettingsStore();
+  const { theme, defaultQuality, autoPlayNext, showLyric, setTheme, setSetting } =
+    useSettingsStore();
 
   const [customColor, setCustomColor] = useState(theme.primary);
   const [loadedSources, setLoadedSources] = useState<SourceInfo[]>([]);
@@ -65,11 +59,11 @@ export default function Settings() {
   useEffect(() => {
     const refreshSources = async () => {
       try {
-        const sources = await invoke<SourceInfo[]>("list_sources");
-        console.log("[Settings] 加载到的音源:", sources);
+        const sources = await invoke<SourceInfo[]>('list_sources');
+        console.log('[Settings] 加载到的音源:', sources);
         setLoadedSources(sources);
       } catch (error) {
-        console.error("[Settings] 加载音源失败:", error);
+        console.error('[Settings] 加载音源失败:', error);
       }
     };
 
@@ -77,44 +71,44 @@ export default function Settings() {
   }, []);
 
   const handleImportSource = async () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json,.js";
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.js';
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
       const content = await file.text();
-      const ext = file.name.split(".").pop()?.toLowerCase();
+      const ext = file.name.split('.').pop()?.toLowerCase();
 
       try {
-        if (ext === "json") {
+        if (ext === 'json') {
           // Save as sources.json config and load
-          await invoke("save_sources_config", { content });
-          const sources = await invoke<SourceInfo[]>("load_sources_from_file");
+          await invoke('save_sources_config', { content });
+          const sources = await invoke<SourceInfo[]>('load_sources_from_file');
           setLoadedSources(sources);
-        } else if (ext === "js") {
+        } else if (ext === 'js') {
           // Register a single JS source directly
-          await invoke("register_js_source", { code: content });
-          const sources = await invoke<SourceInfo[]>("list_sources");
+          await invoke('register_js_source', { code: content });
+          const sources = await invoke<SourceInfo[]>('list_sources');
           setLoadedSources(sources);
         }
       } catch (err) {
-        console.error("[Settings] 导入音源失败:", err);
+        console.error('[Settings] 导入音源失败:', err);
       }
     };
     input.click();
   };
 
   const handleQualityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSetting("defaultQuality", e.target.value as Quality);
+    setSetting('defaultQuality', e.target.value as Quality);
   };
 
   const handleAutoPlayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSetting("autoPlayNext", e.target.checked);
+    setSetting('autoPlayNext', e.target.checked);
   };
 
   const handleShowLyricChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSetting("showLyric", e.target.checked);
+    setSetting('showLyric', e.target.checked);
   };
 
   const applyPresetTheme = (presetTheme: ThemeConfig) => {
@@ -143,19 +137,23 @@ export default function Settings() {
           </button>
           <div className="settings-note">当前已加载音源：{loadedSources.length} 个</div>
           {loadedSources.length > 0 && (
-            <div className="settings-source-list" style={{ marginTop: "10px" }}>
+            <div className="settings-source-list" style={{ marginTop: '10px' }}>
               {loadedSources.map((source) => (
-                <div key={source.id} className="settings-source-item" style={{
-                  padding: "8px 12px",
-                  background: "rgba(255,255,255,0.05)",
-                  borderRadius: "4px",
-                  marginBottom: "6px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center"
-                }}>
-                  <span style={{ color: "#fff" }}>{source.name}</span>
-                  <span style={{ fontSize: "12px", color: "#1DB954" }}>已启用</span>
+                <div
+                  key={source.id}
+                  className="settings-source-item"
+                  style={{
+                    padding: '8px 12px',
+                    background: 'rgba(255,255,255,0.05)',
+                    borderRadius: '4px',
+                    marginBottom: '6px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span style={{ color: '#fff' }}>{source.name}</span>
+                  <span style={{ fontSize: '12px', color: '#1DB954' }}>已启用</span>
                 </div>
               ))}
             </div>
@@ -170,7 +168,11 @@ export default function Settings() {
         <div className="settings-group-card__body">
           <label className="settings-row settings-row--with-control">
             <span className="settings-row__label">默认音质</span>
-            <select value={defaultQuality} onChange={handleQualityChange} className="settings-select">
+            <select
+              value={defaultQuality}
+              onChange={handleQualityChange}
+              className="settings-select"
+            >
               <option value={Quality.K128}>128K</option>
               <option value={Quality.K320}>320K</option>
               <option value={Quality.FLAC}>FLAC</option>
@@ -209,9 +211,12 @@ export default function Settings() {
               <button
                 key={preset.name}
                 onClick={() => applyPresetTheme(preset.theme)}
-                className={`settings-theme-item${theme.primary === preset.theme.primary ? " active" : ""}`}
+                className={`settings-theme-item${theme.primary === preset.theme.primary ? ' active' : ''}`}
               >
-                <div className="settings-theme-item__color" style={{ background: preset.theme.primary }} />
+                <div
+                  className="settings-theme-item__color"
+                  style={{ background: preset.theme.primary }}
+                />
                 <span className="settings-theme-item__name">{preset.name}</span>
               </button>
             ))}

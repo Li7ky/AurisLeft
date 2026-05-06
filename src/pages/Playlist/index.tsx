@@ -1,8 +1,8 @@
-import { useState } from "react";
-import PlaylistSidebar from "../../components/playlist/PlaylistSidebar";
-import PlaylistPanel from "../../components/playlist/PlaylistPanel";
-import type { Playlist } from "../../types";
-import "./index.css";
+import { useState } from 'react';
+import PlaylistSidebar from '../../components/playlist/PlaylistSidebar';
+import PlaylistPanel from '../../components/playlist/PlaylistPanel';
+import type { Playlist } from '../../types';
+import './index.css';
 
 export default function Playlist() {
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);

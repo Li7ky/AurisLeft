@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 import {
   createPlaylist,
   addToPlaylist,
@@ -8,8 +8,8 @@ import {
   getPlaylistSongs,
   importPlaylist,
   exportPlaylist,
-} from "../utils/tauri";
-import type { Playlist, PlaylistSong, Song } from "../types";
+} from '../utils/tauri';
+import type { Playlist, PlaylistSong, Song } from '../types';
 
 interface PlaylistState {
   playlists: Playlist[];
@@ -150,12 +150,13 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
 
   reorderSongs: (_playlistId: number, fromIndex: number, toIndex: number, toast?: ToastFn) => {
     const { songs } = get();
-    if (fromIndex < 0 || fromIndex >= songs.length || toIndex < 0 || toIndex >= songs.length) return;
-    
+    if (fromIndex < 0 || fromIndex >= songs.length || toIndex < 0 || toIndex >= songs.length)
+      return;
+
     const newSongs = [...songs];
     const [movedSong] = newSongs.splice(fromIndex, 1);
     newSongs.splice(toIndex, 0, movedSong);
-    
+
     set({ songs: newSongs });
     toast?.('歌曲顺序已调整', 'success');
   },

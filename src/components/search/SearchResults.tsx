@@ -1,8 +1,8 @@
-import { useSearchStore } from "../../store/searchStore";
-import { usePlayerStore } from "../../store/playerStore";
-import { Quality } from "../../types";
-import type { Song } from "../../types";
-import "./SearchResults.css";
+import { useSearchStore } from '../../store/searchStore';
+import { usePlayerStore } from '../../store/playerStore';
+import { Quality } from '../../types';
+import type { Song } from '../../types';
+import './SearchResults.css';
 
 function SongCard({ song }: { song: Song }) {
   const play = usePlayerStore((s) => s.play);
@@ -19,7 +19,7 @@ function SongCard({ song }: { song: Song }) {
   };
 
   return (
-    <div className={`song-card${isActive ? " song-card--active" : ""}`} onClick={handleCardClick}>
+    <div className={`song-card${isActive ? ' song-card--active' : ''}`} onClick={handleCardClick}>
       <div className="song-card__cover">
         {song.coverUrl ? (
           <img src={song.coverUrl} alt={song.name} />
@@ -32,8 +32,12 @@ function SongCard({ song }: { song: Song }) {
           </svg>
         </button>
       </div>
-      <div className="song-card__name" title={song.name}>{song.name}</div>
-      <div className="song-card__artist" title={song.artist}>{song.artist}</div>
+      <div className="song-card__name" title={song.name}>
+        {song.name}
+      </div>
+      <div className="song-card__artist" title={song.artist}>
+        {song.artist}
+      </div>
     </div>
   );
 }

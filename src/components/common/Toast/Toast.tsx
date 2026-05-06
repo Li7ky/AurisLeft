@@ -36,7 +36,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       setToasts((prev) => [...prev, { id, message, type }]);
       setTimeout(() => removeToast(id), DEFAULT_DURATION);
     },
-    [removeToast],
+    [removeToast]
   );
 
   return (
@@ -46,10 +46,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((toast) => (
           <div key={toast.id} className={`toast toast-${toast.type}`}>
             <span className="toast-message">{toast.message}</span>
-            <button
-              className="toast-close"
-              onClick={() => removeToast(toast.id)}
-            >
+            <button className="toast-close" onClick={() => removeToast(toast.id)}>
               x
             </button>
           </div>

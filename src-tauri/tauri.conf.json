@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "左耳",
+  "productName": "AurisLeft",
   "version": "0.1.0",
-  "identifier": "com.musicplayer.desktop",
+  "identifier": "com.aurisleft.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "左耳",
+        "title": "AurisLeft",
         "width": 1200,
         "height": 800,
         "minWidth": 900,

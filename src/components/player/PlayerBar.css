@@ -1,377 +1,174 @@
 .player-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
   height: var(--player-bar-height);
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+  width: 100%;
+  background: var(--bg-glass-heavy);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-top: 1px solid var(--decorative-border);
   display: grid;
-  grid-template-columns: minmax(240px, 320px) 1fr minmax(240px, 320px);
+  grid-template-columns: 30% 40% 30%;
   align-items: center;
-  gap: var(--space-md);
-  padding: 0 var(--space-md);
-  z-index: 100;
+  padding: 0 var(--space-lg);
+  z-index: var(--z-player);
+  position: relative;
 }
 
-.player-bar__left {
+/* 1. 歌曲信息 (左) */
+.player-bar__info {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   min-width: 0;
 }
 
-.player-bar__cover,
-.player-bar__cover-placeholder {
+.player-bar__cover-wrapper {
+  position: relative;
   width: 56px;
   height: 56px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  background: var(--bg-highlight);
   flex-shrink: 0;
 }
 
 .player-bar__cover {
-  object-fit: cover;
-  background: var(--border);
-  display: block;
+  width: 100%;
+  height: 100%;
+  background-image: linear-gradient(135deg, #2a2a3e, #1a1a25);
+  transition: transform var(--transition-normal);
 }
 
-.player-bar__cover-placeholder {
-  background: var(--border);
+.player-bar__cover-hover {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
-  font-size: var(--font-size-lg);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  color: white;
 }
 
-.player-bar__song-info {
-  min-width: 0;
+.player-bar__cover-wrapper:hover .player-bar__cover-hover {
+  opacity: 1;
+}
+
+.player-bar__metadata {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
-.player-bar__song-name {
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: var(--line-height-tight);
+.player-bar__song-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-md);
+  color: var(--text-base);
 }
 
 .player-bar__artist-name {
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: var(--line-height-tight);
+  color: var(--text-subdued);
 }
 
-.player-bar__favorite-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-full);
-  color: var(--text-secondary);
-  opacity: 0;
-  transition: opacity var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
-  flex-shrink: 0;
+.player-bar__heart--active {
+  color: var(--accent-magenta);
 }
 
-.player-bar__left:hover .player-bar__favorite-btn,
-.player-bar__favorite-btn--active {
-  opacity: 1;
-}
-
-.player-bar__favorite-btn:hover {
-  color: var(--accent);
-  background: var(--bg-highlight);
-}
-
-.player-bar__favorite-btn--active {
-  color: var(--primary);
-}
-
-.player-bar__center {
+/* 2. 播放控制 (中) */
+.player-bar__controls {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
+  gap: var(--space-xs);
 }
 
-.player-bar__controls {
+.player-bar__control-buttons {
   display: flex;
   align-items: center;
   gap: var(--space-md);
 }
 
-.player-bar__control-btn,
-.player-bar__extra-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  transition: color var(--transition-fast), background-color var(--transition-fast);
-}
-
-.player-bar__control-btn:hover,
-.player-bar__extra-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-highlight);
-}
-
 .player-bar__play-btn {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--essential-base);
-  color: var(--decorative-base);
-  font-size: var(--font-size-sm);
-  transition: transform var(--transition-fast), background-color var(--transition-fast);
+  padding: 0;
 }
 
-.player-bar__play-btn:hover {
-  background: var(--essential-base);
-  transform: scale(1.04);
-}
-
-.player-bar__progress-wrapper {
+.player-bar__progress-container {
+  width: 100%;
+  max-width: 600px;
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  max-width: 560px;
+  gap: var(--space-md);
 }
 
 .player-bar__time {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  min-width: 36px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-family: var(--font-family-mono);
+  color: var(--text-subdued);
+  min-width: 40px;
 }
 
-.player-bar__progress-track {
-  --progress-percent: 0%;
+.player-bar__slider-wrapper {
   position: relative;
   flex: 1;
-  height: 12px;
+  height: 4px;
   display: flex;
   align-items: center;
 }
 
-.player-bar__progress-track::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: var(--essential-subdued);
-  pointer-events: none;
-}
-
-.player-bar__progress-fill {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: var(--essential-base);
-  transition: width var(--transition-fast), background-color var(--transition-fast);
-  pointer-events: none;
-}
-
-.player-bar__progress-track:hover .player-bar__progress-fill {
-  background: var(--essential-bright-accent);
-}
-
-.player-bar__progress-track::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: var(--progress-percent);
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-full);
-  background: var(--essential-base);
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-  pointer-events: none;
-}
-
-.player-bar__progress-track:hover::after {
-  opacity: 1;
-}
-
-.player-bar__progress-input {
-  position: absolute;
-  inset: 0;
+.player-bar__progress-slider,
+.player-bar__volume-slider {
   width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
+  -webkit-appearance: none;
+  background: var(--bg-tinted);
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
   z-index: 2;
+  cursor: pointer;
 }
 
-.player-bar__right {
+.player-bar__progress-active {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.player-bar__slider-wrapper:hover .player-bar__progress-active {
+  background: var(--accent-gradient);
+}
+
+/* 3. 功能增强 (右) */
+.player-bar__extra {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-xs);
-  min-width: 0;
+  gap: var(--space-sm);
 }
 
-.player-bar__extra-btn--active {
-  color: var(--primary);
-}
-
-.player-bar__volume-wrapper {
+.player-bar__volume-container {
   display: flex;
   align-items: center;
-  gap: 4px;
-}
-
-.player-bar__volume-slider {
-  width: 92px;
-  height: 4px;
-}
-
-.player-bar__quality-btn {
-  height: 26px;
-  padding: 0 8px;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
+  gap: var(--space-sm);
+  margin: 0 var(--space-md);
   color: var(--text-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
 }
 
-.player-bar__quality-btn:hover {
-  color: var(--text-primary);
-  border-color: var(--essential-base);
-  background: var(--bg-highlight);
-}
-
-.player-bar__empty {
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.player-bar__timer-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.player-bar__timer-remaining {
-  font-size: var(--font-size-xs);
-  color: var(--primary);
-  font-weight: 700;
-  min-width: 34px;
-  font-variant-numeric: tabular-nums;
-}
-
-.player-bar__timer-menu {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  min-width: 148px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 8px 0;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
-  z-index: 120;
-}
-
-.player-bar__timer-menu-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 8px 14px;
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  transition: background-color var(--transition-fast);
-}
-
-.player-bar__timer-menu-item:hover {
-  background: var(--bg-highlight);
-}
-
-.player-bar__timer-menu-item--cancel {
-  color: var(--primary);
-}
-
-.player-bar__timer-menu-item--custom {
-  color: var(--text-secondary);
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
-}
-
-.player-bar__timer-custom {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 12px;
-}
-
-.player-bar__timer-custom-input {
-  width: 64px;
-  padding: 4px 8px;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-.player-bar__timer-custom-input:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-
-.player-bar__timer-custom-btn {
-  padding: 4px 10px;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  color: var(--decorative-base);
-  background: var(--primary);
-  border-radius: var(--radius-sm);
-}
-
-.player-bar__timer-custom-btn:hover {
-  background: var(--accent);
-}
-
-@media (max-width: 1200px) {
-  .player-bar {
-    grid-template-columns: minmax(220px, 280px) 1fr minmax(220px, 280px);
-    gap: var(--space-sm);
-    padding: 0 var(--space-sm);
-  }
-
-  .player-bar__volume-slider {
-    width: 72px;
-  }
+.btn--sm {
+  width: 32px;
+  height: 32px;
 }

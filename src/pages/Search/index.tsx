@@ -1,7 +1,7 @@
-import SearchBar from "../../components/search/SearchBar";
-import SearchResults from "../../components/search/SearchResults";
-import { useSearchStore } from "../../store/searchStore";
-import "./index.css";
+import SearchBar from '../../components/search/SearchBar';
+import SearchResults from '../../components/search/SearchResults';
+import { useSearchStore } from '../../store/searchStore';
+import './index.css';
 
 export default function Search() {
   const loading = useSearchStore((s) => s.loading);

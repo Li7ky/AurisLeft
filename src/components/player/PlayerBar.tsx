@@ -1,313 +1,128 @@
-import { useState, useEffect } from "react";
-import type { CSSProperties } from "react";
-import { usePlayerStore } from "../../store/playerStore";
-import { useSleepTimer } from "../../hooks/useSleepTimer";
-import { PlaybackState, Quality } from "../../types";
-import "./PlayerBar.css";
-
-const QUALITY_LABELS: Record<Quality, string> = {
-  [Quality.K128]: "128K",
-  [Quality.K320]: "320K",
-  [Quality.FLAC]: "FLAC",
-  [Quality.HiRes]: "Hi-Res",
-};
-
-const QUALITY_ORDER = [Quality.K128, Quality.K320, Quality.FLAC, Quality.HiRes];
-const TIMER_OPTIONS = [5, 15, 30, 60];
-
-function formatTime(seconds: number): string {
-  if (!Number.isFinite(seconds)) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
+import React, { useState } from 'react';
+import {
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Repeat,
+  Shuffle,
+  Volume2,
+  ListMusic,
+  Maximize2,
+  Heart,
+  PictureInPicture2,
+  Mic2,
+  Share2,
+} from 'lucide-react';
+import './PlayerBar.css';
 
 export default function PlayerBar() {
-  const {
-    currentSong,
-    playbackState,
-    progress,
-    duration,
-    volume,
-    quality,
-    pause,
-    resume,
-    next,
-    prev,
-    seek,
-    setVolume,
-    setQuality,
-  } = usePlayerStore();
-
-  const { isActive, remaining, start, cancel } = useSleepTimer();
-  const [showTimerMenu, setShowTimerMenu] = useState(false);
-  const [showCustomInput, setShowCustomInput] = useState(false);
-  const [customMinutes, setCustomMinutes] = useState("");
-  const [isFavorite, setIsFavorite] = useState(false);
-
-  useEffect(() => {
-    if (!showTimerMenu) {
-      setShowCustomInput(false);
-      setCustomMinutes("");
-    }
-  }, [showTimerMenu]);
-
-  const handleTimerSelect = async (minutes: number) => {
-    if (isActive && remaining === minutes * 60) {
-      await cancel();
-    } else {
-      await start(minutes);
-    }
-    setShowTimerMenu(false);
-  };
-
-  const handleCustomTimer = async () => {
-    const mins = parseInt(customMinutes, 10);
-    if (!Number.isNaN(mins) && mins > 0) {
-      if (isActive && remaining === mins * 60) {
-        await cancel();
-      } else {
-        await start(mins);
-      }
-      setShowTimerMenu(false);
-    }
-  };
-
-  const handleCancelTimer = async () => {
-    await cancel();
-    setShowTimerMenu(false);
-  };
-
-  const isPlaying = playbackState === PlaybackState.Playing;
-
-  const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const pos = Number(e.target.value);
-    seek(pos);
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const vol = Number(e.target.value);
-    setVolume(vol);
-  };
-
-  const handleQualityCycle = () => {
-    if (!currentSong) return;
-    const available = currentSong.qualities;
-    const idx = QUALITY_ORDER.indexOf(quality);
-    for (let i = 1; i <= QUALITY_ORDER.length; i++) {
-      const nextQ = QUALITY_ORDER[(idx + i) % QUALITY_ORDER.length];
-      if (available.includes(nextQ)) {
-        setQuality(nextQ);
-        return;
-      }
-    }
-  };
-
-  const progressPercent = duration
-    ? (progress / duration) * 100
-    : currentSong
-    ? (progress / (currentSong.duration || 1)) * 100
-    : 0;
-  const progressPercentClamped = Math.max(0, Math.min(100, progressPercent));
-  const progressStyle = {
-    "--progress-percent": `${progressPercentClamped}%`,
-  } as CSSProperties;
-
-  if (!currentSong) {
-    return (
-      <div className="player-bar">
-        <div className="player-bar__left" />
-        <div className="player-bar__center">
-          <span className="player-bar__empty">未选择歌曲</span>
-        </div>
-        <div className="player-bar__right" />
-      </div>
-    );
-  }
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(35);
+  const [volume, setVolume] = useState(80);
+  const [isLiked, setIsLiked] = useState(false);
 
   return (
-    <div className="player-bar">
-      {/* Left: Song info */}
-      <div className="player-bar__left">
-        <div className="player-bar__cover-wrapper">
-          {currentSong.coverUrl ? (
-            <img
-              className="player-bar__cover"
-              src={currentSong.coverUrl}
-              alt={currentSong.name}
-            />
-          ) : (
-            <div className="player-bar__cover-placeholder">♪</div>
-          )}
-        </div>
-        <div className="player-bar__song-info">
-          <div className="player-bar__song-name" title={currentSong.name}>
-            {currentSong.name}
-          </div>
-          <div className="player-bar__artist-name" title={currentSong.artist}>
-            {currentSong.artist}
-          </div>
-        </div>
-        <button
-          className={`player-bar__favorite-btn${
-            isFavorite ? " player-bar__favorite-btn--active" : ""
-          }`}
-          title={isFavorite ? "取消收藏" : "收藏"}
-          onClick={() => setIsFavorite((v) => !v)}
+    <footer className="player-bar">
+      {/* 1. 歌曲信息 (左) */}
+      <div className="player-bar__info">
+        <div
+          className="player-bar__cover-wrapper"
+          onClick={() => {
+            /* TODO: 展开歌词详情页 */
+          }}
         >
-          {isFavorite ? "♥" : "♡"}
-        </button>
+          <div className="player-bar__cover" />
+          <div className="player-bar__cover-hover">
+            <Maximize2 size={16} />
+          </div>
+        </div>
+        <div className="player-bar__metadata">
+          <div className="player-bar__song-title">
+            <span className="truncate">七里香 (Common Jasmine Orange)</span>
+            <button
+              className={`btn--icon ${isLiked ? 'player-bar__heart--active' : ''}`}
+              onClick={() => setIsLiked(!isLiked)}
+            >
+              <Heart size={16} fill={isLiked ? 'var(--accent-magenta)' : 'none'} />
+            </button>
+          </div>
+          <div className="player-bar__artist-name truncate">周杰伦 - 七里香</div>
+        </div>
       </div>
 
-      {/* Center: Controls + Progress */}
-      <div className="player-bar__center">
-        <div className="player-bar__controls">
-          <button
-            className="player-bar__control-btn"
-            onClick={() => prev()}
-            title="上一首"
-          >
-            <span aria-hidden="true">⏮</span>
+      {/* 2. 播放控制 (中) */}
+      <div className="player-bar__controls">
+        <div className="player-bar__control-buttons">
+          <button className="btn--icon btn--sm" title="随机播放">
+            <Shuffle size={16} />
+          </button>
+          <button className="btn--icon" title="上一首">
+            <SkipBack size={22} fill="currentColor" />
           </button>
           <button
-            className="player-bar__play-btn"
-            onClick={() => (isPlaying ? pause() : resume())}
-            title={isPlaying ? "暂停" : "播放"}
+            className="btn btn--primary player-bar__play-btn"
+            onClick={() => setIsPlaying(!isPlaying)}
+            title={isPlaying ? '暂停' : '播放'}
           >
-            <span aria-hidden="true">{isPlaying ? "⏸" : "▶"}</span>
+            {isPlaying ? (
+              <Pause size={24} fill="currentColor" />
+            ) : (
+              <Play size={24} fill="currentColor" style={{ marginLeft: 2 }} />
+            )}
           </button>
-          <button
-            className="player-bar__control-btn"
-            onClick={() => next()}
-            title="下一首"
-          >
-            <span aria-hidden="true">⏭</span>
+          <button className="btn--icon" title="下一首">
+            <SkipForward size={22} fill="currentColor" />
+          </button>
+          <button className="btn--icon btn--sm" title="循环播放">
+            <Repeat size={16} />
           </button>
         </div>
-        <div className="player-bar__progress-wrapper">
-          <span className="player-bar__time">
-            {formatTime(progress)}
-          </span>
-          <div className="player-bar__progress-track" style={progressStyle}>
-            <div
-              className="player-bar__progress-fill"
-              style={{ width: `${progressPercentClamped}%` }}
-            />
+
+        <div className="player-bar__progress-container">
+          <span className="player-bar__time">01:24</span>
+          <div className="player-bar__slider-wrapper">
             <input
-              className="player-bar__progress-input"
               type="range"
-              min={0}
-              max={duration || currentSong.duration || 0}
-              step={0.1}
+              className="player-bar__progress-slider"
               value={progress}
-              onChange={handleProgressChange}
+              onChange={(e) => setProgress(Number(e.target.value))}
             />
+            <div className="player-bar__progress-active" style={{ width: `${progress}%` }} />
           </div>
-          <span className="player-bar__time">
-            {formatTime(duration || currentSong.duration)}
-          </span>
+          <span className="player-bar__time">04:47</span>
         </div>
       </div>
 
-      {/* Right: Extra controls */}
-      <div className="player-bar__right">
-        <button className="player-bar__extra-btn" title="歌词">
-          <span aria-hidden="true">词</span>
+      {/* 3. 功能增强 (右) */}
+      <div className="player-bar__extra">
+        <button className="btn--icon btn--sm" title="歌词">
+          <Mic2 size={18} />
+        </button>
+        <button className="btn--icon btn--sm" title="画中画">
+          <PictureInPicture2 size={18} />
+        </button>
+        <button className="btn--icon btn--sm" title="分享">
+          <Share2 size={18} />
         </button>
 
-        <div className="player-bar__volume-wrapper">
-          <button
-            className="player-bar__extra-btn"
-            title={volume === 0 ? "静音" : volume < 0.5 ? "音量" : "音量"}
-            onClick={() => setVolume(volume === 0 ? 0.5 : 0)}
-          >
-            <span aria-hidden="true">{volume === 0 ? "静" : volume < 0.5 ? "中" : "高"}</span>
-          </button>
-          <input
-            className="player-bar__volume-slider"
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onChange={handleVolumeChange}
-          />
+        <div className="player-bar__volume-container">
+          <Volume2 size={18} />
+          <div className="player-bar__slider-wrapper" style={{ width: 80 }}>
+            <input
+              type="range"
+              className="player-bar__volume-slider"
+              value={volume}
+              onChange={(e) => setVolume(Number(e.target.value))}
+            />
+            <div className="player-bar__progress-active" style={{ width: `${volume}%` }} />
+          </div>
         </div>
 
-        <button
-          className="player-bar__quality-btn"
-          onClick={handleQualityCycle}
-          title="切换音质"
-        >
-          {QUALITY_LABELS[quality]}
+        <button className="btn--icon" title="播放列表">
+          <ListMusic size={20} />
         </button>
-
-        <div className="player-bar__timer-wrapper">
-          <button
-            className={`player-bar__extra-btn${
-              isActive ? " player-bar__extra-btn--active" : ""
-            }`}
-            onClick={() => setShowTimerMenu(!showTimerMenu)}
-            title="睡眠定时器"
-          >
-            <span aria-hidden="true">月</span>
-          </button>
-          {isActive && (
-            <span className="player-bar__timer-remaining">
-              {formatTime(remaining)}
-            </span>
-          )}
-          {showTimerMenu && (
-            <div className="player-bar__timer-menu">
-              {isActive && (
-                <button
-                  className="player-bar__timer-menu-item player-bar__timer-menu-item--cancel"
-                  onClick={handleCancelTimer}
-                >
-                  取消定时器
-                </button>
-              )}
-              {TIMER_OPTIONS.map((mins) => (
-                <button
-                  key={mins}
-                  className="player-bar__timer-menu-item"
-                  onClick={() => handleTimerSelect(mins)}
-                >
-                  {mins} 分钟
-                </button>
-              ))}
-              {!showCustomInput ? (
-                <button
-                  className="player-bar__timer-menu-item player-bar__timer-menu-item--custom"
-                  onClick={() => setShowCustomInput(true)}
-                >
-                  自定义
-                </button>
-              ) : (
-                <div className="player-bar__timer-custom">
-                  <input
-                    className="player-bar__timer-custom-input"
-                    type="number"
-                    min={1}
-                    placeholder="分钟"
-                    value={customMinutes}
-                    onChange={(e) => setCustomMinutes(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleCustomTimer();
-                    }}
-                  />
-                  <button
-                    className="player-bar__timer-custom-btn"
-                    onClick={handleCustomTimer}
-                  >
-                    确定
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
       </div>
-    </div>
+    </footer>
   );
 }

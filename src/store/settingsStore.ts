@@ -1,8 +1,12 @@
-import { create } from "zustand";
-import { loadSettings as tauriLoadSettings, saveSettings as tauriSaveSettings, setTheme as tauriSetTheme } from "../utils/tauri";
-import type { ThemeConfig, AppSettings } from "../types";
-import { Quality } from "../types";
-import { RepeatMode } from "../types";
+import { create } from 'zustand';
+import {
+  loadSettings as tauriLoadSettings,
+  saveSettings as tauriSaveSettings,
+  setTheme as tauriSetTheme,
+} from '../utils/tauri';
+import type { ThemeConfig, AppSettings } from '../types';
+import { Quality } from '../types';
+import { RepeatMode } from '../types';
 
 interface SettingsState {
   theme: ThemeConfig;
@@ -25,12 +29,12 @@ interface SettingsActions {
 type SettingsStore = SettingsState & SettingsActions;
 
 const defaultTheme: ThemeConfig = {
-  primary: "#1DB954",
-  background: "#121212",
-  surface: "#1e1e1e",
-  textPrimary: "#ffffff",
-  textSecondary: "#b3b3b3",
-  accent: "#1ed760",
+  primary: '#1DB954',
+  background: '#121212',
+  surface: '#1e1e1e',
+  textPrimary: '#ffffff',
+  textSecondary: '#b3b3b3',
+  accent: '#1ed760',
 };
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
@@ -56,16 +60,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     set(() => {
       const newState: Partial<SettingsState> = {};
       switch (key) {
-        case "defaultQuality":
+        case 'defaultQuality':
           newState.defaultQuality = value as Quality;
           break;
-        case "autoPlayNext":
+        case 'autoPlayNext':
           newState.autoPlayNext = value as boolean;
           break;
-        case "showLyric":
+        case 'showLyric':
           newState.showLyric = value as boolean;
           break;
-        case "theme":
+        case 'theme':
           newState.theme = value as ThemeConfig;
           break;
       }

@@ -1,6 +1,6 @@
-import { useEffect } from "react";
-import { usePlaylistStore } from "../store/playlistStore";
-import type { Playlist } from "../types";
+import { useEffect } from 'react';
+import { usePlaylistStore } from '../store/playlistStore';
+import type { Playlist } from '../types';
 
 interface UsePlaylistReturn {
   playlists: Playlist[];
