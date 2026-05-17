@@ -67,10 +67,17 @@
   text-overflow: ellipsis;
 }
 
-.song-card__play-button {
+.song-card__cover-actions {
   position: absolute;
   right: var(--space-sm);
   bottom: var(--space-sm);
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.song-card__play-button,
+.song-card__download-button {
+  position: relative;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -90,17 +97,20 @@
   cursor: pointer;
 }
 
-.song-card:hover .song-card__play-button {
+.song-card:hover .song-card__play-button,
+.song-card:hover .song-card__download-button {
   opacity: 1;
   transform: translateY(0);
 }
 
-.song-card__play-button:hover {
+.song-card__play-button:hover,
+.song-card__download-button:hover {
   background: color-mix(in srgb, var(--essential-base) 85%, white);
   transform: translateY(0) scale(1.05);
 }
 
-.song-card__play-button:active {
+.song-card__play-button:active,
+.song-card__download-button:active {
   transform: translateY(0) scale(0.95);
 }
 

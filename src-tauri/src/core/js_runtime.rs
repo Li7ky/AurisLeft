@@ -220,13 +220,14 @@ impl JSScript {
     ) -> AppResult<SearchResult> {
         let raw = self.raw_code.clone();
         let source = source.to_string();
+        let action_source = source.clone();
         let keyword = keyword.to_string();
         let tokio_http = http.clone();
 
         let result = tokio::task::spawn_blocking(move || {
             Self::execute_js_action(
                 &raw,
-                &source,
+                &action_source,
                 "search",
                 json!({
                     "key": keyword,
@@ -241,7 +242,16 @@ impl JSScript {
             crate::core::error::AppError::SourceError(format!("JS action execution error: {}", e))
         })??;
 
-        let songs = Self::parse_search_result(&result)?;
+        let mut songs = Self::parse_search_result(&result)?;
+        for song in &mut songs {
+            song.source = source.clone();
+            if !song.song_id.contains(':') {
+                song.song_id = format!("{}:{}", source, song.song_id);
+            }
+            if !song.id.contains(':') {
+                song.id = format!("{}:{}", source, song.id);
+            }
+        }
         let total = songs.len() as u32;
 
         Ok(SearchResult {

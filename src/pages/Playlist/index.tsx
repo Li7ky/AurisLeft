@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import PlaylistSidebar from '../../components/playlist/PlaylistSidebar';
 import PlaylistPanel from '../../components/playlist/PlaylistPanel';
 import { usePlaylistStore } from '../../store/playlistStore';
@@ -8,6 +8,7 @@ import './index.css';
 
 export default function Playlist() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const playlists = usePlaylistStore((s) => s.playlists);
   const currentPlaylist = usePlaylistStore((s) => s.currentPlaylist);
   const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists);
@@ -28,11 +29,20 @@ export default function Playlist() {
     setCurrentPlaylist(routePlaylist);
   }, [routePlaylist, setCurrentPlaylist]);
 
+  const handleSelectPlaylist = (playlist: typeof currentPlaylist) => {
+    setCurrentPlaylist(playlist);
+    if (playlist) {
+      navigate(`/playlist/${playlist.id}`);
+    } else {
+      navigate('/playlist');
+    }
+  };
+
   return (
     <div className="playlist-page">
       <div className="playlist-page__sidebar">
         <PlaylistSidebar
-          onSelectPlaylist={setCurrentPlaylist}
+          onSelectPlaylist={handleSelectPlaylist}
           selectedPlaylist={currentPlaylist}
         />
       </div>

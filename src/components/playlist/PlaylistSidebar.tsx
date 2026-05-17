@@ -70,8 +70,8 @@ export default function PlaylistSidebar({
       </div>
 
       <div
-        className={`playlist-sidebar__item${selectedPlaylist === null ? ' playlist-sidebar__item--active' : ''}`}
-        onClick={() => onSelectPlaylist(null)}
+        className="playlist-sidebar__item"
+        onClick={() => addToast('收藏功能即将支持', 'info')}
       >
         <span className="playlist-sidebar__icon">★</span>
         <span className="playlist-sidebar__name">收藏</span>

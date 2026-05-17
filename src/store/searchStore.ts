@@ -24,6 +24,8 @@ interface SearchActions {
 
 type SearchStore = SearchState & SearchActions;
 
+let searchRequestId = 0;
+
 export const useSearchStore = create<SearchStore>((set, get) => ({
   keyword: '',
   results: new Map(),
@@ -35,14 +37,13 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 
   search: async (keyword: string, page?: number, toast?: ToastFn) => {
     const p = page ?? 1;
+    const requestId = ++searchRequestId;
     set({ keyword, page: p, loading: true, error: null });
     try {
       const result: SearchResult = await searchMusic(keyword, p);
-      const prevResults = get().results;
-      const sourceMap = new Map<string, Song[]>(prevResults);
-      if (p === 1) {
-        sourceMap.clear();
-      }
+      if (requestId !== searchRequestId) return;
+
+      const sourceMap = new Map<string, Song[]>();
       for (const song of result.songs) {
         const existing = sourceMap.get(song.source) ?? [];
         sourceMap.set(song.source, [...existing, song]);
@@ -53,6 +54,7 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
         loading: false,
       });
     } catch (err) {
+      if (requestId !== searchRequestId) return;
       const message = err instanceof Error ? err.message : String(err);
       set({ loading: false, error: message });
       toast?.(message, 'error');
