@@ -64,11 +64,7 @@ impl HttpClient {
         Ok(result)
     }
 
-    pub async fn post_form(
-        &self,
-        url: &str,
-        form: &[(&str, &str)],
-    ) -> Result<String, AppError> {
+    pub async fn post_form(&self, url: &str, form: &[(&str, &str)]) -> Result<String, AppError> {
         let response = self.client.post(url).form(form).send().await?;
         let body = response.text().await?;
         Ok(body)

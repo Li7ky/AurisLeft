@@ -271,6 +271,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "aurisleft"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "anyhow",
+ "base64 0.22.1",
+ "cbc",
+ "chrono",
+ "dirs 5.0.1",
+ "futures",
+ "global-hotkey",
+ "id3",
+ "md-5",
+ "moka",
+ "reqwest 0.12.28",
+ "rodio",
+ "rquickjs",
+ "rsa",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-opener",
+ "tauri-plugin-shell",
+ "thiserror 2.0.18",
+ "tokio",
+ "url",
+ "uuid",
+ "walkdir",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2601,40 +2635,6 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "music-player"
-version = "0.1.0"
-dependencies = [
- "aes",
- "anyhow",
- "base64 0.22.1",
- "cbc",
- "chrono",
- "dirs 5.0.1",
- "futures",
- "global-hotkey",
- "id3",
- "md-5",
- "moka",
- "reqwest 0.12.28",
- "rodio",
- "rquickjs",
- "rsa",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "tauri",
- "tauri-build",
- "tauri-plugin-opener",
- "tauri-plugin-shell",
- "thiserror 2.0.18",
- "tokio",
- "url",
- "uuid",
- "walkdir",
 ]
 
 [[package]]

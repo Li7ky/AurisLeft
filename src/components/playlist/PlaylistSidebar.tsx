@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePlaylistStore } from '../../store/playlistStore';
+import { useToast } from '../common/Toast/useToast';
 import type { Playlist } from '../../types';
 import './PlaylistSidebar.css';
 
@@ -15,6 +16,7 @@ export default function PlaylistSidebar({
   const playlists = usePlaylistStore((s) => s.playlists);
   const createPlaylist = usePlaylistStore((s) => s.createPlaylist);
   const deletePlaylist = usePlaylistStore((s) => s.deletePlaylist);
+  const { addToast } = useToast();
   const [showNewInput, setShowNewInput] = useState(false);
   const [newName, setNewName] = useState('');
   const [contextMenu, setContextMenu] = useState<{
@@ -26,7 +28,7 @@ export default function PlaylistSidebar({
   const handleCreate = async () => {
     const name = newName.trim();
     if (name) {
-      await createPlaylist(name);
+      await createPlaylist(name, addToast);
       setNewName('');
       setShowNewInput(false);
     }
@@ -48,7 +50,7 @@ export default function PlaylistSidebar({
 
   const handleDelete = async () => {
     if (contextMenu) {
-      await deletePlaylist(contextMenu.playlist.id);
+      await deletePlaylist(contextMenu.playlist.id, addToast);
       if (selectedPlaylist?.id === contextMenu.playlist.id) {
         onSelectPlaylist(null);
       }

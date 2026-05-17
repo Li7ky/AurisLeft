@@ -78,10 +78,8 @@ impl Database {
 
     /// Create a new playlist
     pub fn create_playlist(&mut self, name: &str) -> Result<i64> {
-        self.conn.execute(
-            "INSERT INTO playlists (name) VALUES (?1)",
-            [name],
-        )?;
+        self.conn
+            .execute("INSERT INTO playlists (name) VALUES (?1)", [name])?;
         Ok(self.conn.last_insert_rowid())
     }
 
@@ -117,11 +115,15 @@ impl Database {
         Ok(())
     }
 
-    /// Remove a song from a playlist by position
-    pub fn remove_song_from_playlist(&mut self, playlist_id: i64, position: u32) -> Result<()> {
+    /// Remove a song from a playlist by row id
+    pub fn remove_song_from_playlist(
+        &mut self,
+        playlist_id: i64,
+        playlist_song_id: i64,
+    ) -> Result<()> {
         self.conn.execute(
-            "DELETE FROM playlist_songs WHERE playlist_id = ?1 AND position = ?2",
-            (playlist_id, position as i64),
+            "DELETE FROM playlist_songs WHERE playlist_id = ?1 AND id = ?2",
+            (playlist_id, playlist_song_id),
         )?;
 
         self.conn.execute(
@@ -129,6 +131,31 @@ impl Database {
             [playlist_id],
         )?;
 
+        Ok(())
+    }
+
+    /// Reorder songs in a playlist and persist their positions
+    pub fn reorder_playlist_songs(&mut self, playlist_id: i64, song_ids: &[i64]) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        for (position, song_id) in song_ids.iter().enumerate() {
+            let updated = tx.execute(
+                "UPDATE playlist_songs SET position = ?1 WHERE playlist_id = ?2 AND id = ?3",
+                (position as i64, playlist_id, song_id),
+            )?;
+
+            if updated == 0 {
+                return Err(AppError::DatabaseError(format!(
+                    "歌单 {} 中不存在歌曲记录 {}",
+                    playlist_id, song_id
+                )));
+            }
+        }
+
+        tx.execute(
+            "UPDATE playlists SET updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+            [playlist_id],
+        )?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -182,10 +209,8 @@ impl Database {
 
     /// Delete a playlist and its songs
     pub fn delete_playlist(&mut self, playlist_id: i64) -> Result<()> {
-        self.conn.execute(
-            "DELETE FROM playlists WHERE id = ?1",
-            [playlist_id],
-        )?;
+        self.conn
+            .execute("DELETE FROM playlists WHERE id = ?1", [playlist_id])?;
         Ok(())
     }
 
@@ -199,10 +224,8 @@ impl Database {
 
         match existing {
             Ok(_) => {
-                self.conn.execute(
-                    "DELETE FROM favorites WHERE song_id = ?1",
-                    [&song.song_id],
-                )?;
+                self.conn
+                    .execute("DELETE FROM favorites WHERE song_id = ?1", [&song.song_id])?;
                 Ok(false)
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => {
@@ -263,7 +286,8 @@ impl Database {
 
     /// Save a setting as JSON
     pub fn save_setting(&mut self, key: &str, value: &serde_json::Value) -> Result<()> {
-        let value_str = serde_json::to_string(value).map_err(|e| AppError::InvalidFormat(e.to_string()))?;
+        let value_str =
+            serde_json::to_string(value).map_err(|e| AppError::InvalidFormat(e.to_string()))?;
         self.conn.execute(
             "INSERT INTO settings (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = ?2",
@@ -274,16 +298,16 @@ impl Database {
 
     /// Load a single setting
     pub fn load_setting(&self, key: &str) -> Result<Option<serde_json::Value>> {
-        let result = self.conn.query_row(
-            "SELECT value FROM settings WHERE key = ?1",
-            [key],
-            |row| row.get::<_, String>(0),
-        );
+        let result =
+            self.conn
+                .query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+                    row.get::<_, String>(0)
+                });
 
         match result {
             Ok(value_str) => {
-                let value: serde_json::Value =
-                    serde_json::from_str(&value_str).map_err(|e| AppError::InvalidFormat(e.to_string()))?;
+                let value: serde_json::Value = serde_json::from_str(&value_str)
+                    .map_err(|e| AppError::InvalidFormat(e.to_string()))?;
                 Ok(Some(value))
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -301,8 +325,8 @@ impl Database {
         let mut map = serde_json::Map::new();
         for row in rows {
             let (key, value_str) = row?;
-            let value: serde_json::Value =
-                serde_json::from_str(&value_str).map_err(|e| AppError::InvalidFormat(e.to_string()))?;
+            let value: serde_json::Value = serde_json::from_str(&value_str)
+                .map_err(|e| AppError::InvalidFormat(e.to_string()))?;
             map.insert(key, value);
         }
 
@@ -323,7 +347,12 @@ impl Database {
         m3u.push_str(&format!("#PLAYLIST: {}\n", playlist));
 
         for song in &songs {
-            m3u.push_str(&format!("#EXTINF:{},{} - {}\n", song.duration.unwrap_or(0), song.artist, song.name));
+            m3u.push_str(&format!(
+                "#EXTINF:{},{} - {}\n",
+                song.duration.unwrap_or(0),
+                song.artist,
+                song.name
+            ));
             m3u.push_str(&format!("#SOURCE:{}\n", song.source));
             m3u.push_str(&format!("#SONG_ID:{}\n", song.song_id));
             m3u.push('\n');
@@ -335,7 +364,8 @@ impl Database {
     /// Export playlist to JSON format
     pub fn export_to_json(&self, playlist_id: i64) -> Result<String> {
         let songs = self.get_playlist_songs(playlist_id)?;
-        let json = serde_json::to_string_pretty(&songs).map_err(|e| AppError::InvalidFormat(e.to_string()))?;
+        let json = serde_json::to_string_pretty(&songs)
+            .map_err(|e| AppError::InvalidFormat(e.to_string()))?;
         Ok(json)
     }
 

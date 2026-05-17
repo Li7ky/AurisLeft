@@ -1,4 +1,5 @@
 pub mod download;
+pub mod local_music;
 pub mod lyric;
 pub mod player;
 pub mod playlist;
@@ -6,4 +7,3 @@ pub mod search;
 pub mod settings;
 pub mod sources;
 pub mod timer;
-pub mod local_music;

@@ -10,17 +10,17 @@ pub mod core;
 pub mod models;
 
 #[cfg(desktop)]
-pub mod tray;
-#[cfg(desktop)]
 pub mod hotkeys;
+#[cfg(desktop)]
+pub mod tray;
 
-use crate::core::error::Result;
-use crate::core::storage::Database;
-use crate::core::http::HttpClient;
-use crate::core::cache::HttpCache;
-use crate::core::source::SourceManager;
 use crate::core::audio::AudioEngine;
+use crate::core::cache::HttpCache;
 use crate::core::downloader::DownloadManager;
+use crate::core::error::Result;
+use crate::core::http::HttpClient;
+use crate::core::source::SourceManager;
+use crate::core::storage::Database;
 use crate::core::timer::SleepTimer;
 
 /// Application state shared across Tauri commands
@@ -102,10 +102,10 @@ fn spawn_progress_poller(app: tauri::AppHandle) {
 /// Called via frontend Tauri command to ensure it runs in main runtime
 fn load_sources_at_startup(app_handle: &tauri::AppHandle) {
     let app_handle = app_handle.clone();
-    
+
     // Defer to main tokio runtime via a small delay + tokio::spawn in on_window_ready
     // Actually, we just let the frontend call the command directly
-    eprintln!("[DEBUG] 音源将由前端通过命令加载");
+    eprintln!("[INFO] Music sources will be loaded by the frontend command");
     // 发送一个事件通知前端加载
     let _ = app_handle.emit("app-ready", ());
 }
@@ -117,13 +117,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             setup(app).map_err(|e| tauri::Error::Anyhow(e.into()))?;
-            
+            let window_labels: Vec<String> = app.webview_windows().keys().cloned().collect();
+            eprintln!("[INFO] setup windows: {:?}", window_labels);
+            eprintln!(
+                "[INFO] main window exists: {}",
+                app.get_webview_window("main").is_some()
+            );
+
             // Start progress poller for playback progress events
             spawn_progress_poller(app.handle().clone());
-            
+
             // 启动时加载音源
             load_sources_at_startup(app.handle());
-            
+
             #[cfg(desktop)]
             {
                 let _ = crate::tray::setup_tray(app);
@@ -147,7 +153,7 @@ pub fn run() {
                     });
                 }
             }
-            
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -170,13 +176,22 @@ pub fn run() {
             commands::playlist::add_to_playlist,
             commands::playlist::remove_from_playlist,
             commands::playlist::list_playlists,
+            commands::playlist::get_playlist_songs,
+            commands::playlist::reorder_playlist_songs,
             commands::playlist::delete_playlist,
+            commands::playlist::export_playlist,
+            commands::playlist::import_playlist,
             commands::settings::set_theme,
             commands::settings::load_settings,
             commands::settings::save_settings,
             commands::download::download_song,
             commands::download::get_download_dir,
             commands::download::set_download_dir,
+            commands::local_music::scan_local_music,
+            commands::local_music::play_local_file,
+            commands::local_music::add_local_music_dir,
+            commands::local_music::remove_local_music_dir,
+            commands::local_music::list_local_music_dirs,
             commands::timer::start_sleep_timer,
             commands::timer::cancel_sleep_timer,
             commands::timer::get_sleep_timer_status,

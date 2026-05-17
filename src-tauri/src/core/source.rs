@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use crate::core::error::{Result, AppError};
+use crate::core::error::{AppError, Result};
 use crate::core::http::HttpClient;
 use crate::core::js_runtime::JSScript;
 use crate::models::{Lyric, Quality, SearchResult, Song, SourceInfo, SourceType};
@@ -35,7 +35,11 @@ impl JsonSource {
 
     fn build_url(&self, endpoint: &str, params: &[(&str, String)]) -> String {
         let base = self.api_base.trim_end_matches('/');
-        let path = self.api_endpoints.get(endpoint).cloned().unwrap_or_else(|| endpoint.to_string());
+        let path = self
+            .api_endpoints
+            .get(endpoint)
+            .cloned()
+            .unwrap_or_else(|| endpoint.to_string());
         let mut url = format!("{}/{}", base, path.trim_start_matches('/'));
         if !params.is_empty() {
             let query: Vec<String> = params
@@ -74,17 +78,15 @@ impl MusicSource {
     pub fn info(&self) -> SourceInfo {
         match self {
             MusicSource::Json(src) => src.info.clone(),
-            MusicSource::Js(src) => {
-                SourceInfo {
-                    id: src.info.id.clone(),
-                    name: src.info.name.clone(),
-                    version: src.info.version.clone(),
-                    source_type: SourceType::JsModule,
-                    enabled: true,
-                    supported_qualities: vec![Quality::K128, Quality::K320, Quality::FLAC],
-                    fail_count: 0,
-                }
-            }
+            MusicSource::Js(src) => SourceInfo {
+                id: src.info.id.clone(),
+                name: src.info.name.clone(),
+                version: src.info.version.clone(),
+                source_type: SourceType::JsModule,
+                enabled: true,
+                supported_qualities: vec![Quality::K128, Quality::K320, Quality::FLAC],
+                fail_count: 0,
+            },
         }
     }
 }
@@ -111,7 +113,10 @@ impl SourceManager {
     ) -> Result<SourceInfo> {
         let source = JsonSource::new(name, api_base, endpoints);
         let info = source.info.clone();
-        self.sources.write().await.insert(info.id.clone(), Arc::new(MusicSource::Json(source)));
+        self.sources
+            .write()
+            .await
+            .insert(info.id.clone(), Arc::new(MusicSource::Json(source)));
         Ok(info)
     }
 
@@ -134,7 +139,12 @@ impl SourceManager {
     }
 
     pub async fn list_sources(&self) -> Vec<SourceInfo> {
-        self.sources.read().await.values().map(|s| s.info()).collect()
+        self.sources
+            .read()
+            .await
+            .values()
+            .map(|s| s.info())
+            .collect()
     }
 
     pub async fn remove_source(&self, source_id: &str) -> Result<()> {
@@ -164,10 +174,9 @@ impl SourceManager {
 
     async fn get_source(&self, source_id: &str) -> Result<Arc<MusicSource>> {
         let guard = self.sources.read().await;
-        guard
-            .get(source_id)
-            .cloned()
-            .ok_or_else(|| crate::core::error::AppError::SourceError(format!("Source not found: {}", source_id)))
+        guard.get(source_id).cloned().ok_or_else(|| {
+            crate::core::error::AppError::SourceError(format!("Source not found: {}", source_id))
+        })
     }
 
     pub async fn search(&self, keyword: &str, page: u32, source_id: &str) -> Result<SearchResult> {
@@ -246,13 +255,18 @@ impl SourceManager {
                 let url = src.build_url("lyric", &[("song_id", song_id.to_string())]);
                 let body = self.http.get(&url, None).await?;
                 let lyric: Lyric = serde_json::from_str(&body).map_err(|e| {
-                    crate::core::error::AppError::InvalidFormat(format!("Failed to parse lyric: {}", e))
+                    crate::core::error::AppError::InvalidFormat(format!(
+                        "Failed to parse lyric: {}",
+                        e
+                    ))
                 })?;
                 Ok(lyric)
             }
             MusicSource::Js(script) => {
                 let (platform, real_id) = Self::parse_platform_song_id(song_id, script);
-                script.get_lyric(&platform, &real_id, self.http.clone()).await
+                script
+                    .get_lyric(&platform, &real_id, self.http.clone())
+                    .await
             }
         }
     }
@@ -262,7 +276,13 @@ impl SourceManager {
         if let Some(idx) = song_id.find(':') {
             (song_id[..idx].to_string(), song_id[idx + 1..].to_string())
         } else {
-            let key = script.info.sources_info.keys().next().cloned().unwrap_or_default();
+            let key = script
+                .info
+                .sources_info
+                .keys()
+                .next()
+                .cloned()
+                .unwrap_or_default();
             (key, song_id.to_string())
         }
     }
@@ -281,18 +301,15 @@ impl SourceManager {
             ("offset", &offset),
             ("limit", "30"),
         ];
-        let body = http.post_form(
-            "https://music.163.com/api/search/get",
-            &form,
-        ).await?;
+        let body = http
+            .post_form("https://music.163.com/api/search/get", &form)
+            .await?;
 
         let resp: serde_json::Value = serde_json::from_str(&body).map_err(|e| {
             AppError::InvalidFormat(format!("Failed to parse NetEase response: {}", e))
         })?;
 
-        let songs_arr = resp
-            .pointer("/result/songs")
-            .and_then(|v| v.as_array());
+        let songs_arr = resp.pointer("/result/songs").and_then(|v| v.as_array());
 
         let total = resp
             .pointer("/result/songCount")
@@ -300,33 +317,56 @@ impl SourceManager {
             .unwrap_or(0) as u32;
 
         let songs: Vec<Song> = match songs_arr {
-            Some(arr) => arr.iter().filter_map(|s| {
-                let id = s.get("id")?.as_u64()?.to_string();
-                let name = s.get("name")?.as_str()?.to_string();
-                let artists: Vec<String> = s.get("artists")
-                    .and_then(|a| a.as_array())
-                    .map(|arr| arr.iter().filter_map(|a| a.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect())
-                    .unwrap_or_default();
-                let album = s.pointer("/album/name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let cover = s.pointer("/album/picUrl").and_then(|v| v.as_str()).map(|s| s.to_string());
-                let duration = s.get("duration").and_then(|v| v.as_u64()).unwrap_or(0) / 1000;
+            Some(arr) => arr
+                .iter()
+                .filter_map(|s| {
+                    let id = s.get("id")?.as_u64()?.to_string();
+                    let name = s.get("name")?.as_str()?.to_string();
+                    let artists: Vec<String> = s
+                        .get("artists")
+                        .and_then(|a| a.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|a| {
+                                    a.get("name")
+                                        .and_then(|n| n.as_str())
+                                        .map(|s| s.to_string())
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let album = s
+                        .pointer("/album/name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let cover = s
+                        .pointer("/album/picUrl")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    let duration = s.get("duration").and_then(|v| v.as_u64()).unwrap_or(0) / 1000;
 
-                Some(Song {
-                    id: format!("wy:{}", id),
-                    name,
-                    artist: artists.join(" / "),
-                    album,
-                    duration: duration as u32,
-                    cover_url: cover,
-                    source: source_id.to_string(),
-                    song_id: format!("wy:{}", id),
-                    qualities: vec![Quality::K128, Quality::K320, Quality::FLAC],
+                    Some(Song {
+                        id: format!("wy:{}", id),
+                        name,
+                        artist: artists.join(" / "),
+                        album,
+                        duration: duration as u32,
+                        cover_url: cover,
+                        source: source_id.to_string(),
+                        song_id: format!("wy:{}", id),
+                        qualities: vec![Quality::K128, Quality::K320, Quality::FLAC],
+                    })
                 })
-            }).collect(),
+                .collect(),
             None => vec![],
         };
 
-        eprintln!("[DEBUG] NetEase search '{}': found {} songs", keyword, songs.len());
+        eprintln!(
+            "[DEBUG] NetEase search '{}': found {} songs",
+            keyword,
+            songs.len()
+        );
         Ok(SearchResult {
             total,
             songs,

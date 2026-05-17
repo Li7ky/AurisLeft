@@ -1,5 +1,6 @@
 import { useSearchStore } from '../../store/searchStore';
 import { usePlayerStore } from '../../store/playerStore';
+import { useToast } from '../common/Toast/useToast';
 import { Quality } from '../../types';
 import type { Song } from '../../types';
 import './SearchResults.css';
@@ -7,15 +8,17 @@ import './SearchResults.css';
 function SongCard({ song }: { song: Song }) {
   const play = usePlayerStore((s) => s.play);
   const currentSong = usePlayerStore((s) => s.currentSong);
+  const toast = useToast();
   const isActive = currentSong?.id === song.id && currentSong?.source === song.source;
+  const quality = song.qualities[0] ?? Quality.K320;
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
-    play(song, song.qualities.includes(song.qualities[0]) ? song.qualities[0] : Quality.K320);
+    play(song, quality, toast.addToast);
   };
 
   const handleCardClick = () => {
-    play(song, song.qualities.includes(song.qualities[0]) ? song.qualities[0] : Quality.K320);
+    play(song, quality, toast.addToast);
   };
 
   return (

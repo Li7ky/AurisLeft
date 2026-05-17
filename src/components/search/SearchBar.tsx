@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchStore } from '../../store/searchStore';
+import { useToast } from '../common/Toast/useToast';
 import './SearchBar.css';
 
 export default function SearchBar() {
   const [input, setInput] = useState('');
   const search = useSearchStore((s) => s.search);
   const clearResults = useSearchStore((s) => s.clearResults);
+  const { addToast } = useToast();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -18,14 +20,14 @@ export default function SearchBar() {
       return;
     }
     timerRef.current = setTimeout(() => {
-      search(trimmed);
+      search(trimmed, 1, addToast);
     }, 300);
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
     };
-  }, [input, search, clearResults]);
+  }, [input, search, clearResults, addToast]);
 
   return (
     <div className="search-bar">

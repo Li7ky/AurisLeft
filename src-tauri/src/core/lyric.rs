@@ -22,19 +22,23 @@ impl LyricParser {
             }
 
             // Parse metadata tags: [ti:...], [ar:...], [al:...], [by:...]
-            if let Some(meta_content) = line.strip_prefix("[ti:").and_then(|s| s.strip_suffix(']')) {
+            if let Some(meta_content) = line.strip_prefix("[ti:").and_then(|s| s.strip_suffix(']'))
+            {
                 metadata.title = Some(meta_content.to_string());
                 continue;
             }
-            if let Some(meta_content) = line.strip_prefix("[ar:").and_then(|s| s.strip_suffix(']')) {
+            if let Some(meta_content) = line.strip_prefix("[ar:").and_then(|s| s.strip_suffix(']'))
+            {
                 metadata.artist = Some(meta_content.to_string());
                 continue;
             }
-            if let Some(meta_content) = line.strip_prefix("[al:").and_then(|s| s.strip_suffix(']')) {
+            if let Some(meta_content) = line.strip_prefix("[al:").and_then(|s| s.strip_suffix(']'))
+            {
                 metadata.album = Some(meta_content.to_string());
                 continue;
             }
-            if let Some(meta_content) = line.strip_prefix("[by:").and_then(|s| s.strip_suffix(']')) {
+            if let Some(meta_content) = line.strip_prefix("[by:").and_then(|s| s.strip_suffix(']'))
+            {
                 metadata.by = Some(meta_content.to_string());
                 continue;
             }
@@ -114,7 +118,11 @@ impl LyricParser {
             }
         }
 
-        lines.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
+        lines.sort_by(|a, b| {
+            a.time
+                .partial_cmp(&b.time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         Ok(Lyric {
             lines,

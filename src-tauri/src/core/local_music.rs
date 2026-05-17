@@ -40,7 +40,10 @@ impl LocalMusicScanner {
                     None => continue,
                 };
 
-                if !SUPPORTED_EXTENSIONS.iter().any(|&e| e.trim_start_matches('.') == extension) {
+                if !SUPPORTED_EXTENSIONS
+                    .iter()
+                    .any(|&e| e.trim_start_matches('.') == extension)
+                {
                     continue;
                 }
 
@@ -58,7 +61,10 @@ impl LocalMusicScanner {
 
     pub fn get_metadata(file_path: &Path) -> Result<LocalSong> {
         let file_meta = std::fs::metadata(file_path).map_err(|e| {
-            AppError::IoError(format!("Failed to read file metadata for {:?}: {}", file_path, e))
+            AppError::IoError(format!(
+                "Failed to read file metadata for {:?}: {}",
+                file_path, e
+            ))
         })?;
 
         let file_size = file_meta.len();

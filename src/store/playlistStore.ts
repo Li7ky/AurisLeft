@@ -6,6 +6,7 @@ import {
   listPlaylists,
   deletePlaylist,
   getPlaylistSongs,
+  reorderPlaylistSongs,
   importPlaylist,
   exportPlaylist,
 } from '../utils/tauri';
@@ -31,7 +32,7 @@ interface PlaylistActions {
   loadSongs: (playlistId: number, toast?: ToastFn) => Promise<void>;
   importPlaylist: (filePath: string, format: string, toast?: ToastFn) => Promise<void>;
   exportPlaylist: (playlistId: number, toast?: ToastFn) => Promise<string>;
-  reorderSongs: (playlistId: number, fromIndex: number, toIndex: number, toast?: ToastFn) => void;
+  reorderSongs: (playlistId: number, fromIndex: number, toIndex: number, toast?: ToastFn) => Promise<void>;
 }
 
 type PlaylistStore = PlaylistState & PlaylistActions;
@@ -110,7 +111,7 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   },
 
   setCurrentPlaylist: (playlist: Playlist | null) => {
-    set({ currentPlaylist: playlist });
+    set({ currentPlaylist: playlist, songs: playlist ? get().songs : [] });
   },
 
   loadSongs: async (playlistId: number, toast?: ToastFn) => {
@@ -148,16 +149,28 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
     }
   },
 
-  reorderSongs: (_playlistId: number, fromIndex: number, toIndex: number, toast?: ToastFn) => {
+  reorderSongs: async (playlistId: number, fromIndex: number, toIndex: number, toast?: ToastFn) => {
     const { songs } = get();
     if (fromIndex < 0 || fromIndex >= songs.length || toIndex < 0 || toIndex >= songs.length)
       return;
 
+    const previousSongs = [...songs];
     const newSongs = [...songs];
     const [movedSong] = newSongs.splice(fromIndex, 1);
     newSongs.splice(toIndex, 0, movedSong);
 
     set({ songs: newSongs });
-    toast?.('歌曲顺序已调整', 'success');
+
+    try {
+      await reorderPlaylistSongs(
+        playlistId,
+        newSongs.map((song) => song.id)
+      );
+      toast?.('歌曲顺序已调整', 'success');
+    } catch (err) {
+      set({ songs: previousSongs });
+      const message = err instanceof Error ? err.message : String(err);
+      toast?.(message, 'error');
+    }
   },
 }));

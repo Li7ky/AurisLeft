@@ -56,6 +56,15 @@
   opacity: 1;
 }
 
+.player-bar__cover-wrapper--disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.player-bar__cover-wrapper--disabled:hover .player-bar__cover-hover {
+  opacity: 0;
+}
+
 .player-bar__metadata {
   display: flex;
   flex-direction: column;
@@ -147,6 +156,22 @@
   border-radius: 2px;
   z-index: 1;
   pointer-events: none;
+}
+
+.player-bar__progress-slider:disabled,
+.player-bar__volume-slider:disabled,
+.player-bar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.player-bar__progress-slider:disabled + .player-bar__progress-active {
+  background: var(--text-subdued);
+}
+
+.player-bar__soon-btn {
+  opacity: 0.72;
 }
 
 .player-bar__slider-wrapper:hover .player-bar__progress-active {

@@ -1,13 +1,34 @@
 use tauri::State;
-use crate::AppState;
+
 use crate::core::error::Result;
 use crate::models::Lyric;
+use crate::AppState;
 
 #[tauri::command]
 pub async fn fetch_lyric(
-    _state: State<'_, AppState>,
-    _song_id: String,
-    _source: String,
+    state: State<'_, AppState>,
+    song_id: String,
+    source: String,
 ) -> Result<Lyric> {
-    todo!()
+    if song_id.trim().is_empty() || source.trim().is_empty() {
+        return Ok(empty_lyric());
+    }
+
+    match state.source_mgr.get_lyric(&song_id, &source).await {
+        Ok(lyric) => Ok(lyric),
+        Err(err) => {
+            eprintln!(
+                "[DEBUG] 获取歌词失败 song_id={} source={}: {}",
+                song_id, source, err
+            );
+            Ok(empty_lyric())
+        }
+    }
+}
+
+fn empty_lyric() -> Lyric {
+    Lyric {
+        lines: Vec::new(),
+        metadata: None,
+    }
 }

@@ -1,8 +1,8 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
-use crate::models::{PlaybackState, Quality, Song};
 use crate::core::audio::PlaybackProgress;
+use crate::models::{PlaybackState, Quality, Song};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PlaybackStateChanged {

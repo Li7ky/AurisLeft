@@ -60,6 +60,26 @@
   color: var(--text-secondary);
 }
 
+.settings-source-item {
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--surface) 72%, var(--background));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-source-item__name {
+  color: var(--text-primary);
+}
+
+.settings-source-item__status {
+  font-size: 12px;
+  color: var(--primary);
+}
+
 .settings-select {
   min-width: 104px;
   border-radius: 7px;
@@ -111,7 +131,7 @@
   border-radius: 50%;
   top: 2px;
   left: 2px;
-  background: #fff;
+  background: var(--text-on-accent);
   transition: transform 0.2s ease;
 }
 
@@ -147,14 +167,20 @@
 }
 
 .settings-theme-item__color {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
+  border: 1px solid var(--border);
 }
 
 .settings-theme-item__name {
   font-size: 11px;
   color: var(--text-primary);
+}
+
+.settings-theme-item__mode {
+  font-size: 10px;
+  color: var(--text-secondary);
 }
 
 .settings-color-input {

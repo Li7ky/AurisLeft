@@ -1,18 +1,30 @@
 import {
   Home,
-  Compass,
-  Video,
-  Radio,
   Library,
-  Heart,
   Download,
-  Clock,
   FileMusic,
   PlusSquare,
+  Search,
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { useEffect } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { usePlaylistStore } from '../../store/playlistStore';
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const playlists = usePlaylistStore((s) => s.playlists);
+  const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists);
+  const setCurrentPlaylist = usePlaylistStore((s) => s.setCurrentPlaylist);
+
+  useEffect(() => {
+    loadPlaylists();
+  }, [loadPlaylists]);
+
+  const openPlaylistRoot = () => {
+    setCurrentPlaylist(null);
+    navigate('/playlist');
+  };
+
   return (
     <aside className="sidebar">
       {/* 发现音乐 */}
@@ -29,31 +41,13 @@ export default function Sidebar() {
             <span>首页推荐</span>
           </NavLink>
           <NavLink
-            to="/discover"
+            to="/search"
             className={({ isActive }) =>
               `sidebar__nav-item ${isActive ? 'sidebar__nav-item--active' : ''}`
             }
           >
-            <Compass className="sidebar__nav-icon" />
-            <span>发现音乐</span>
-          </NavLink>
-          <NavLink
-            to="/mv"
-            className={({ isActive }) =>
-              `sidebar__nav-item ${isActive ? 'sidebar__nav-item--active' : ''}`
-            }
-          >
-            <Video className="sidebar__nav-icon" />
-            <span>精彩视频</span>
-          </NavLink>
-          <NavLink
-            to="/fm"
-            className={({ isActive }) =>
-              `sidebar__nav-item ${isActive ? 'sidebar__nav-item--active' : ''}`
-            }
-          >
-            <Radio className="sidebar__nav-icon" />
-            <span>FM 电台</span>
+            <Search className="sidebar__nav-icon" />
+            <span>搜索音乐</span>
           </NavLink>
         </nav>
       </div>
@@ -80,15 +74,6 @@ export default function Sidebar() {
             <Download className="sidebar__nav-icon" />
             <span>下载管理</span>
           </NavLink>
-          <NavLink
-            to="/history"
-            className={({ isActive }) =>
-              `sidebar__nav-item ${isActive ? 'sidebar__nav-item--active' : ''}`
-            }
-          >
-            <Clock className="sidebar__nav-icon" />
-            <span>最近播放</span>
-          </NavLink>
         </nav>
       </div>
 
@@ -101,27 +86,39 @@ export default function Sidebar() {
           <h3 className="sidebar__title" style={{ padding: 0, margin: 0 }}>
             创建的歌单
           </h3>
-          <button className="btn--icon" style={{ width: 20, height: 20 }} title="新建歌单">
+          <button
+            className="btn--icon"
+            style={{ width: 20, height: 20 }}
+            title="新建歌单"
+            onClick={openPlaylistRoot}
+          >
             <PlusSquare size={14} />
           </button>
         </div>
         <nav>
-          <NavLink to="/playlist/fav" className="sidebar__nav-item">
-            <Heart className="sidebar__nav-icon" style={{ color: 'var(--accent-magenta)' }} />
-            <span>我喜欢的音乐</span>
-          </NavLink>
-          <NavLink to="/playlist/1" className="sidebar__nav-item">
+          <NavLink
+            to="/playlist"
+            className={({ isActive }) =>
+              `sidebar__nav-item ${isActive ? 'sidebar__nav-item--active' : ''}`
+            }
+            onClick={() => setCurrentPlaylist(null)}
+          >
             <Library className="sidebar__nav-icon" />
-            <span className="truncate">驾驶燃曲 - 赛博朋克</span>
+            <span className="truncate">全部歌单</span>
           </NavLink>
-          <NavLink to="/playlist/2" className="sidebar__nav-item">
-            <Library className="sidebar__nav-icon" />
-            <span className="truncate">工作专注 - 低保真...</span>
-          </NavLink>
-          <NavLink to="/playlist/3" className="sidebar__nav-item">
-            <Library className="sidebar__nav-icon" />
-            <span className="truncate">周杰伦精选集</span>
-          </NavLink>
+          {playlists.map((playlist) => (
+            <NavLink
+              key={playlist.id}
+              to={`/playlist/${playlist.id}`}
+              className={({ isActive }) =>
+                `sidebar__nav-item ${isActive ? 'sidebar__nav-item--active' : ''}`
+              }
+              onClick={() => setCurrentPlaylist(playlist)}
+            >
+              <Library className="sidebar__nav-icon" />
+              <span className="truncate">{playlist.name}</span>
+            </NavLink>
+          ))}
         </nav>
       </div>
     </aside>

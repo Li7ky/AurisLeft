@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useToast } from '../../components/common/Toast/useToast';
 import { Quality } from '../../types';
 import type { ThemeConfig } from '../../types';
 import './index.css';
@@ -12,9 +13,10 @@ interface SourceInfo {
   enabled: boolean;
 }
 
-const PRESET_THEMES: { name: string; theme: ThemeConfig }[] = [
+const PRESET_THEMES: { name: string; mode: '暗色' | '明亮'; theme: ThemeConfig }[] = [
   {
-    name: '默认绿',
+    name: '暗夜绿',
+    mode: '暗色',
     theme: {
       primary: '#1DB954',
       background: '#121212',
@@ -26,6 +28,7 @@ const PRESET_THEMES: { name: string; theme: ThemeConfig }[] = [
   },
   {
     name: '深海蓝',
+    mode: '暗色',
     theme: {
       primary: '#1a73e8',
       background: '#0d1117',
@@ -37,6 +40,7 @@ const PRESET_THEMES: { name: string; theme: ThemeConfig }[] = [
   },
   {
     name: '暮光紫',
+    mode: '暗色',
     theme: {
       primary: '#8b5cf6',
       background: '#13111c',
@@ -46,29 +50,69 @@ const PRESET_THEMES: { name: string; theme: ThemeConfig }[] = [
       accent: '#a78bfa',
     },
   },
+  {
+    name: '晨光绿',
+    mode: '明亮',
+    theme: {
+      primary: '#16a34a',
+      background: '#f8fafc',
+      surface: '#ffffff',
+      textPrimary: '#111827',
+      textSecondary: '#64748b',
+      accent: '#22c55e',
+    },
+  },
+  {
+    name: '晴空蓝',
+    mode: '明亮',
+    theme: {
+      primary: '#2563eb',
+      background: '#f4f7fb',
+      surface: '#ffffff',
+      textPrimary: '#172033',
+      textSecondary: '#667085',
+      accent: '#38bdf8',
+    },
+  },
 ];
+
+function isSameTheme(a: ThemeConfig, b: ThemeConfig) {
+  return (
+    a.primary === b.primary &&
+    a.background === b.background &&
+    a.surface === b.surface &&
+    a.textPrimary === b.textPrimary &&
+    a.textSecondary === b.textSecondary &&
+    a.accent === b.accent
+  );
+}
 
 export default function Settings() {
   const { theme, defaultQuality, autoPlayNext, showLyric, setTheme, setSetting } =
     useSettingsStore();
+  const { addToast } = useToast();
 
   const [customColor, setCustomColor] = useState(theme.primary);
   const [loadedSources, setLoadedSources] = useState<SourceInfo[]>([]);
+
+  useEffect(() => {
+    setCustomColor(theme.primary);
+  }, [theme.primary]);
 
   // 设置页仅查询已加载音源，避免重复触发加载
   useEffect(() => {
     const refreshSources = async () => {
       try {
         const sources = await invoke<SourceInfo[]>('list_sources');
-        console.log('[Settings] 加载到的音源:', sources);
         setLoadedSources(sources);
       } catch (error) {
-        console.error('[Settings] 加载音源失败:', error);
+        const message = error instanceof Error ? error.message : String(error);
+        addToast(`加载音源失败：${message}`, 'error');
       }
     };
 
     refreshSources();
-  }, []);
+  }, [addToast]);
 
   const handleImportSource = async () => {
     const input = document.createElement('input');
@@ -86,14 +130,19 @@ export default function Settings() {
           await invoke('save_sources_config', { content });
           const sources = await invoke<SourceInfo[]>('load_sources_from_file');
           setLoadedSources(sources);
+          addToast('音源导入成功', 'success');
         } else if (ext === 'js') {
           // Register a single JS source directly
           await invoke('register_js_source', { code: content });
           const sources = await invoke<SourceInfo[]>('list_sources');
           setLoadedSources(sources);
+          addToast('音源导入成功', 'success');
+        } else {
+          addToast('仅支持导入 .json 或 .js 音源文件', 'error');
         }
       } catch (err) {
-        console.error('[Settings] 导入音源失败:', err);
+        const message = err instanceof Error ? err.message : String(err);
+        addToast(`导入音源失败：${message}`, 'error');
       }
     };
     input.click();
@@ -142,18 +191,9 @@ export default function Settings() {
                 <div
                   key={source.id}
                   className="settings-source-item"
-                  style={{
-                    padding: '8px 12px',
-                    background: 'rgba(255,255,255,0.05)',
-                    borderRadius: '4px',
-                    marginBottom: '6px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
                 >
-                  <span style={{ color: '#fff' }}>{source.name}</span>
-                  <span style={{ fontSize: '12px', color: '#1DB954' }}>已启用</span>
+                  <span className="settings-source-item__name">{source.name}</span>
+                  <span className="settings-source-item__status">已启用</span>
                 </div>
               ))}
             </div>
@@ -205,19 +245,22 @@ export default function Settings() {
           <h3 className="settings-group-card__title">外观设置</h3>
         </div>
         <div className="settings-group-card__body">
-          <div className="settings-note">预设主题</div>
+          <div className="settings-note">预设主题（暗色 / 明亮）</div>
           <div className="settings-theme-grid">
             {PRESET_THEMES.map((preset) => (
               <button
                 key={preset.name}
                 onClick={() => applyPresetTheme(preset.theme)}
-                className={`settings-theme-item${theme.primary === preset.theme.primary ? ' active' : ''}`}
+                className={`settings-theme-item${isSameTheme(theme, preset.theme) ? ' active' : ''}`}
               >
                 <div
                   className="settings-theme-item__color"
-                  style={{ background: preset.theme.primary }}
+                  style={{
+                    background: `linear-gradient(135deg, ${preset.theme.background} 0 50%, ${preset.theme.primary} 50% 100%)`,
+                  }}
                 />
                 <span className="settings-theme-item__name">{preset.name}</span>
+                <span className="settings-theme-item__mode">{preset.mode}</span>
               </button>
             ))}
           </div>
@@ -242,7 +285,7 @@ export default function Settings() {
         </div>
         <div className="settings-group-card__body settings-about">
           <div>左耳 v0.1.0</div>
-          <div>基于 Tauri 2.x + React 18 构建</div>
+          <div>基于 Tauri 2.x + React 构建</div>
           <div>支持多音源搜索、歌词显示、歌单管理</div>
         </div>
       </section>

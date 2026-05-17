@@ -1,19 +1,13 @@
-use tauri::State;
-use crate::AppState;
 use crate::core::error::Result;
 use crate::core::timer::SleepTimerStatus;
+use crate::AppState;
+use tauri::State;
 
 #[tauri::command]
-pub async fn start_sleep_timer(
-    state: State<'_, AppState>,
-    minutes: u64,
-) -> Result<()> {
-    let app_handle = state
-        .app_handle
-        .lock()
-        .await
-        .clone()
-        .ok_or_else(|| crate::core::error::AppError::IoError("App handle not available".to_string()))?;
+pub async fn start_sleep_timer(state: State<'_, AppState>, minutes: u64) -> Result<()> {
+    let app_handle = state.app_handle.lock().await.clone().ok_or_else(|| {
+        crate::core::error::AppError::IoError("App handle not available".to_string())
+    })?;
 
     state.sleep_timer.start(minutes * 60, app_handle).await;
     Ok(())

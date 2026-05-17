@@ -37,7 +37,7 @@
   border: none;
   border-radius: 20px;
   background: var(--primary, #1db954);
-  color: #fff;
+  color: var(--text-on-accent);
   font-size: 0.875rem;
   cursor: pointer;
   transition: background 0.2s;
