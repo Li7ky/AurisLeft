@@ -2,11 +2,14 @@ use serde::{Deserialize, Serialize};
 
 /// Audio quality options compatible with LX Music sources
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "lowercase")]
 pub enum Quality {
+    #[serde(rename = "128k")]
     K128,
+    #[serde(rename = "320k")]
     K320,
+    #[serde(rename = "flac")]
     FLAC,
+    #[serde(rename = "hires")]
     HiRes,
 }
 
@@ -23,6 +26,7 @@ impl std::fmt::Display for Quality {
 
 /// Represents a song from a music source
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Song {
     pub id: String,
     pub name: String,
@@ -37,10 +41,12 @@ pub struct Song {
 
 /// Music source metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SourceInfo {
     pub id: String,
     pub name: String,
     pub version: String,
+    #[serde(rename = "type")]
     pub source_type: SourceType,
     pub enabled: bool,
     pub supported_qualities: Vec<Quality>,
@@ -49,9 +55,10 @@ pub struct SourceInfo {
 
 /// Type of music source
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum SourceType {
+    #[serde(rename = "js")]
     JsModule,
+    #[serde(rename = "json")]
     JsonConfig,
 }
 
@@ -80,6 +87,7 @@ pub struct LyricMetadata {
 
 /// Search results from a music source
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchResult {
     pub songs: Vec<Song>,
     pub total: u32,
@@ -100,6 +108,7 @@ pub enum PlaybackState {
 
 /// Playlist summary information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Playlist {
     pub id: i64,
     pub name: String,
@@ -110,6 +119,7 @@ pub struct Playlist {
 
 /// A song entry within a playlist
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PlaylistSong {
     pub id: i64,
     pub playlist_id: i64,
@@ -125,6 +135,7 @@ pub struct PlaylistSong {
 
 /// Theme color configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ThemeConfig {
     pub primary: String,
     pub background: String,
@@ -136,8 +147,9 @@ pub struct ThemeConfig {
 
 /// Player-specific settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PlayerSettings {
-    pub default_quality: String,
+    pub default_quality: Quality,
     pub auto_play_next: bool,
     pub volume: f64,
     pub shuffle: bool,
@@ -146,14 +158,15 @@ pub struct PlayerSettings {
 
 /// Appearance-specific settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppearanceSettings {
     pub theme: ThemeConfig,
     pub show_lyric: bool,
-    pub font_size: String,
 }
 
 /// Source manager settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SourceSettings {
     pub timeout_ms: u32,
     pub fail_threshold: u32,
@@ -172,7 +185,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             player: PlayerSettings {
-                default_quality: "320k".to_string(),
+                default_quality: Quality::K320,
                 auto_play_next: true,
                 volume: 0.8,
                 shuffle: false,
@@ -188,7 +201,6 @@ impl Default for AppSettings {
                     accent: "#1ed760".to_string(),
                 },
                 show_lyric: true,
-                font_size: "medium".to_string(),
             },
             sources: SourceSettings {
                 timeout_ms: 8000,
@@ -201,6 +213,7 @@ impl Default for AppSettings {
 
 /// Local music file with metadata extracted from ID3 tags
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LocalSong {
     pub file_path: String,
     pub title: String,

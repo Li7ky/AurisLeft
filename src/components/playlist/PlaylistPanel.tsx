@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { usePlaylistStore } from '../../store/playlistStore';
 import { usePlayerStore } from '../../store/playerStore';
+import { useToast } from '../common/Toast/useToast';
 import type { Playlist, PlaylistSong } from '../../types';
 import { Quality } from '../../types';
 import './PlaylistPanel.css';
@@ -23,6 +24,7 @@ interface SongRowProps {
 function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
   const play = usePlayerStore((s) => s.play);
   const currentSong = usePlayerStore((s) => s.currentSong);
+  const { addToast } = useToast();
   const isActive = currentSong?.songId === song.songId && currentSong?.source === song.source;
 
   const [{ isDragging }, drag] = useDrag({
@@ -55,7 +57,8 @@ function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
         songId: song.songId,
         qualities: song.qualities ?? [quality],
       },
-      quality
+      quality,
+      addToast
     );
   };
 
@@ -118,6 +121,7 @@ interface AddToPlaylistDialogProps {
 function AddToPlaylistDialog({ song, onClose }: AddToPlaylistDialogProps) {
   const playlists = usePlaylistStore((s) => s.playlists);
   const addSong = usePlaylistStore((s) => s.addSong);
+  const { addToast } = useToast();
   const [searchText, setSearchText] = useState('');
 
   const filtered = playlists.filter((pl) =>
@@ -135,7 +139,7 @@ function AddToPlaylistDialog({ song, onClose }: AddToPlaylistDialogProps) {
       source: song.source,
       songId: song.songId,
       qualities: song.qualities ?? [Quality.K320],
-    });
+    }, addToast);
     onClose();
   };
 
@@ -184,6 +188,8 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
   const removeSong = usePlaylistStore((s) => s.removeSong);
   const loadSongs = usePlaylistStore((s) => s.loadSongs);
   const reorderSongs = usePlaylistStore((s) => s.reorderSongs);
+  const play = usePlayerStore((s) => s.play);
+  const { addToast } = useToast();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -193,9 +199,9 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
 
   useEffect(() => {
     if (playlist) {
-      loadSongs(playlist.id);
+      loadSongs(playlist.id, addToast);
     }
-  }, [playlist, loadSongs]);
+  }, [playlist, loadSongs, addToast]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, song: PlaylistSong) => {
     e.preventDefault();
@@ -204,7 +210,7 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
 
   const handleRemove = async () => {
     if (contextMenu && playlist) {
-      await removeSong(playlist.id, contextMenu.song.id);
+      await removeSong(playlist.id, contextMenu.song.id, addToast);
       setContextMenu(null);
     }
   };
@@ -221,11 +227,35 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
   const moveRow = useCallback(
     (fromIndex: number, toIndex: number) => {
       if (playlist) {
-        reorderSongs(playlist.id, fromIndex, toIndex);
+        void reorderSongs(playlist.id, fromIndex, toIndex);
       }
     },
     [playlist, reorderSongs]
   );
+
+  const handlePlayAll = () => {
+    const firstSong = songs[0];
+    if (!firstSong) {
+      addToast('歌单暂无歌曲，先去搜索页添加喜欢的音乐吧', 'info');
+      return;
+    }
+
+    play(
+      {
+        id: firstSong.songId,
+        name: firstSong.name,
+        artist: firstSong.artist,
+        album: firstSong.album ?? '',
+        duration: firstSong.duration ?? 0,
+        coverUrl: firstSong.coverUrl,
+        source: firstSong.source,
+        songId: firstSong.songId,
+        qualities: firstSong.qualities ?? [Quality.K320],
+      },
+      Quality.K320,
+      addToast
+    );
+  };
 
   if (!playlist) {
     return (
@@ -266,13 +296,18 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
             {createdDate && <span>· {createdDate}</span>}
           </div>
           <div className="playlist-panel__actions">
-            <button className="btn btn--primary">
+            <button className="btn btn--primary" onClick={handlePlayAll} disabled={songs.length === 0}>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                 <polygon points="8 5 19 12 8 19" />
               </svg>
               播放全部
             </button>
-            <button className="btn btn--ghost">添加歌曲</button>
+            <button
+              className="btn btn--ghost"
+              onClick={() => addToast('可在搜索页右键歌曲添加到歌单', 'info')}
+            >
+              添加歌曲
+            </button>
           </div>
         </div>
       </div>
@@ -288,7 +323,10 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
       {loading ? (
         <div className="playlist-panel__loading">加载中...</div>
       ) : songs.length === 0 ? (
-        <div className="playlist-panel__empty">该列表暂无歌曲</div>
+        <div className="playlist-panel__empty">
+          <div className="playlist-panel__empty-title">该歌单还是空的</div>
+          <div className="playlist-panel__empty-desc">去搜索页发现歌曲，并通过歌曲菜单添加到这个歌单。</div>
+        </div>
       ) : (
         <div className="playlist-panel__list">
           {songs.map((song, idx) => (

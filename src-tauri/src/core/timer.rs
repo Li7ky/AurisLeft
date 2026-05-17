@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tauri::Emitter;
+use tokio::sync::Mutex;
 
 #[derive(Clone, serde::Serialize)]
 pub struct SleepTimerStatus {

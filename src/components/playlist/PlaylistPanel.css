@@ -275,6 +275,20 @@
   text-align: center;
   color: var(--text-subdued);
   padding: var(--space-xl);
+  border: 1px dashed color-mix(in srgb, var(--text-subdued) 28%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--text-base) 4%, transparent);
+}
+
+.playlist-panel__empty-title {
+  color: var(--text-base);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  margin-bottom: var(--space-xs);
+}
+
+.playlist-panel__empty-desc {
+  font-size: var(--font-size-sm);
 }
 
 /* 右键菜单 */

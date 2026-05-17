@@ -34,7 +34,7 @@
   align-items: center;
   justify-content: center;
   padding: 48px;
-  background-color: var(--surface-bg);
+  background-color: var(--surface-bg, var(--surface));
   border-radius: 8px;
   gap: 16px;
   color: var(--text-secondary);

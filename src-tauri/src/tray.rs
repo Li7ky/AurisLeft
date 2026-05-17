@@ -15,23 +15,21 @@ pub fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
     TrayIconBuilder::new()
         .menu(&menu)
         .show_menu_on_left_click(true)
-        .tooltip("Music Player")
-        .on_menu_event(move |app, event| {
-            match event.id.as_ref() {
-                "toggle_play" => {
-                    let _ = app.emit("hotkey-play-pause", ());
-                }
-                "next_track" => {
-                    let _ = app.emit("hotkey-next", ());
-                }
-                "prev_track" => {
-                    let _ = app.emit("hotkey-prev", ());
-                }
-                "quit" => {
-                    app.exit(0);
-                }
-                _ => {}
+        .tooltip("AurisLeft")
+        .on_menu_event(move |app, event| match event.id.as_ref() {
+            "toggle_play" => {
+                let _ = app.emit("hotkey-play-pause", ());
             }
+            "next_track" => {
+                let _ = app.emit("hotkey-next", ());
+            }
+            "prev_track" => {
+                let _ = app.emit("hotkey-prev", ());
+            }
+            "quit" => {
+                app.exit(0);
+            }
+            _ => {}
         })
         .build(app)?;
 

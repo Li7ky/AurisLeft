@@ -20,6 +20,10 @@ export async function listSources(): Promise<SourceInfo[]> {
   return invoke<SourceInfo[]>('list_sources');
 }
 
+export async function loadSourcesFromFile(): Promise<SourceInfo[]> {
+  return invoke<SourceInfo[]>('load_sources_from_file');
+}
+
 export async function toggleSource(sourceId: string): Promise<void> {
   return invoke('toggle_source', { sourceId });
 }
@@ -87,12 +91,16 @@ export async function getPlaylistSongs(playlistId: number): Promise<PlaylistSong
   return invoke<PlaylistSong[]>('get_playlist_songs', { playlistId });
 }
 
+export async function reorderPlaylistSongs(playlistId: number, songIds: number[]): Promise<void> {
+  return invoke('reorder_playlist_songs', { playlistId, songIds });
+}
+
 export async function importPlaylist(filePath: string, format: string): Promise<number> {
   return invoke<number>('import_playlist', { filePath, format });
 }
 
-export async function exportPlaylist(playlistId: number): Promise<string> {
-  return invoke<string>('export_playlist', { playlistId });
+export async function exportPlaylist(playlistId: number, format = 'm3u'): Promise<string> {
+  return invoke<string>('export_playlist', { playlistId, format });
 }
 
 export async function setTheme(theme: ThemeConfig): Promise<void> {

@@ -1,9 +1,33 @@
+import { useEffect, useRef } from 'react';
 import { useDownloadStore } from '../../store/downloadStore';
+import { useToast } from '../../components/common/Toast/useToast';
 import { DownloadStatus } from '../../types';
 import './index.css';
 
 export default function DownloadManager() {
   const { tasks, clearCompleted } = useDownloadStore();
+  const { addToast } = useToast();
+  const notifiedFailuresRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const failedTaskIds = new Set<string>();
+
+    for (const task of tasks) {
+      if (task.status !== DownloadStatus.Failed) continue;
+
+      failedTaskIds.add(task.url);
+      if (!notifiedFailuresRef.current.has(task.url)) {
+        notifiedFailuresRef.current.add(task.url);
+        addToast(`下载失败：${task.songName}`, 'error');
+      }
+    }
+
+    for (const taskId of notifiedFailuresRef.current) {
+      if (!failedTaskIds.has(taskId)) {
+        notifiedFailuresRef.current.delete(taskId);
+      }
+    }
+  }, [tasks, addToast]);
 
   const statusText = (task: (typeof tasks)[0]) => {
     switch (task.status) {

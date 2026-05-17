@@ -2,7 +2,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { PlaybackState } from '../types';
 
 /**
- * Zuoer Audio Engine
+ * AurisLeft Audio Engine
  * 用于封装 HTML5 Audio 实例，并与 playerStore 进行状态同步。
  * 在无 Tauri 后端或播放网络流时使用此引擎。
  */
@@ -36,21 +36,48 @@ class AudioEngine {
     });
 
     this.audio.addEventListener('pause', () => {
-      usePlayerStore.getState().setPlaybackState(PlaybackState.Paused);
+      // Only set to Paused if we're not seeking/loading
+      const state = usePlayerStore.getState().playbackState;
+      if (state === PlaybackState.Playing) {
+        usePlayerStore.getState().setPlaybackState(PlaybackState.Paused);
+      }
     });
 
-    this.audio.addEventListener('error', (e) => {
-      console.error('AudioEngine Error:', e);
-      usePlayerStore.getState().setPlaybackState(PlaybackState.Error);
+    this.audio.addEventListener('error', () => {
+      const message = this.audio.error?.message ?? 'HTML5 Audio playback failed';
+      usePlayerStore.getState().handlePlaybackError(message);
     });
   }
 
   public async play(url: string) {
-    if (this.audio.src !== url) {
-      this.audio.src = url;
-      this.audio.load();
+    if (!url) {
+      // Empty URL means resume — don't change src
+      if (this.audio.paused && this.audio.src) {
+        await this.audio.play();
+      }
+      return;
+    }
+    try {
+      const newSrc = new URL(url, window.location.origin).href;
+      const currentSrc = this.audio.src;
+      if (currentSrc !== newSrc) {
+        this.audio.src = url;
+        this.audio.load();
+      }
+    } catch {
+      // Relative URL fallback
+      if (this.audio.src !== url) {
+        this.audio.src = url;
+        this.audio.load();
+      }
     }
     await this.audio.play();
+  }
+
+  public async resume() {
+    if (this.audio.paused && this.audio.src) {
+      await this.audio.play();
+    }
   }
 
   public pause() {
@@ -67,6 +94,10 @@ class AudioEngine {
     if (volume >= 0 && volume <= 1) {
       this.audio.volume = volume;
     }
+  }
+
+  public get currentSrc() {
+    return this.audio.src;
   }
 }
 

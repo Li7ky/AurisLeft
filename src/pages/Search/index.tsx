@@ -1,6 +1,7 @@
 import SearchBar from '../../components/search/SearchBar';
 import SearchResults from '../../components/search/SearchResults';
 import { useSearchStore } from '../../store/searchStore';
+import { useToast } from '../../components/common/Toast/useToast';
 import './index.css';
 
 export default function Search() {
@@ -10,6 +11,7 @@ export default function Search() {
   const page = useSearchStore((s) => s.page);
   const hasMore = useSearchStore((s) => s.hasMore);
   const setPage = useSearchStore((s) => s.setPage);
+  const { addToast } = useToast();
 
   const totalResults = Array.from(results.values()).reduce((sum, songs) => sum + songs.length, 0);
 
@@ -29,7 +31,7 @@ export default function Search() {
             <div className="search-page__pagination">
               <button
                 disabled={page <= 1}
-                onClick={() => setPage(page - 1)}
+                onClick={() => setPage(page - 1, addToast)}
                 className="search-page__page-btn"
               >
                 上一页
@@ -37,7 +39,7 @@ export default function Search() {
               <span className="search-page__page-num">第 {page} 页</span>
               <button
                 disabled={!hasMore}
-                onClick={() => setPage(page + 1)}
+                onClick={() => setPage(page + 1, addToast)}
                 className="search-page__page-btn"
               >
                 下一页

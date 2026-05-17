@@ -1,7 +1,8 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
+use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
 
 use rodio::{Decoder, OutputStream, Sink, Source};
 use serde::Serialize;
@@ -12,12 +13,12 @@ use crate::models::PlaybackState;
 
 #[derive(Debug, Clone)]
 enum AudioCommand {
-    Play(String),
+    Play(String, mpsc::Sender<Result<f64>>),
     Pause,
     Resume,
     Stop,
-    Seek(f64),
-    SetVolume(f32),
+    Seek(f64, mpsc::Sender<Result<()>>),
+    SetVolume(f32, mpsc::Sender<Result<()>>),
 }
 
 struct SharedState {
@@ -74,7 +75,7 @@ impl AudioEngine {
             let (_stream, handle) = match OutputStream::try_default() {
                 Ok(s) => s,
                 Err(e) => {
-                    eprintln!("Failed to create audio output: {}", e);
+                    eprintln!("[ERROR] Failed to create audio output: {}", e);
                     return;
                 }
             };
@@ -82,7 +83,7 @@ impl AudioEngine {
             let mut sink = match Sink::try_new(&handle) {
                 Ok(s) => s,
                 Err(e) => {
-                    eprintln!("Failed to create audio sink: {}", e);
+                    eprintln!("[ERROR] Failed to create audio sink: {}", e);
                     return;
                 }
             };
@@ -93,7 +94,23 @@ impl AudioEngine {
             while running_clone.load(Ordering::Relaxed) {
                 match rx.try_recv() {
                     Ok(cmd) => match cmd {
-                        AudioCommand::Play(url) => {
+                        AudioCommand::Play(url, result_tx) => {
+                            sink.stop();
+                            sink = match Sink::try_new(&handle) {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    let err = crate::core::error::AppError::PlaybackError(format!(
+                                        "Failed to create audio sink: {}",
+                                        e
+                                    ));
+                                    {
+                                        let mut st = shared_clone.state.blocking_write();
+                                        *st = PlaybackState::Error(err.to_string());
+                                    }
+                                    let _ = result_tx.send(Err(err));
+                                    continue;
+                                }
+                            };
                             {
                                 let mut st = shared_clone.state.blocking_write();
                                 *st = PlaybackState::Loading;
@@ -119,28 +136,16 @@ impl AudioEngine {
                                 *sp = 0.0;
                             }
                             {
-                                shared_clone.playback_ended_flag.store(false, Ordering::Relaxed);
+                                shared_clone
+                                    .playback_ended_flag
+                                    .store(false, Ordering::Relaxed);
                             }
-
-                            let _rt = match tokio::runtime::Builder::new_current_thread()
-                                .enable_all()
-                                .build()
-                            {
-                                Ok(r) => r,
-                                Err(e) => {
-                                    let mut st = shared_clone.state.blocking_write();
-                                    *st = PlaybackState::Error(format!(
-                                        "Failed to create runtime: {}",
-                                        e
-                                    ));
-                                    continue;
-                                }
-                            };
 
                             match Self::play_sync(&url, &mut sink) {
                                 Ok(total_secs) => {
                                     {
-                                        let mut d = shared_clone.total_duration_secs.blocking_write();
+                                        let mut d =
+                                            shared_clone.total_duration_secs.blocking_write();
                                         *d = total_secs;
                                     }
                                     {
@@ -151,10 +156,12 @@ impl AudioEngine {
                                         let mut st = shared_clone.start_time.blocking_write();
                                         *st = Some(std::time::Instant::now());
                                     }
+                                    let _ = result_tx.send(Ok(total_secs));
                                 }
                                 Err(e) => {
                                     let mut st = shared_clone.state.blocking_write();
                                     *st = PlaybackState::Error(e.to_string());
+                                    let _ = result_tx.send(Err(e));
                                 }
                             }
                         }
@@ -164,6 +171,10 @@ impl AudioEngine {
                             {
                                 let mut sp = shared_clone.saved_position.blocking_write();
                                 *sp = elapsed;
+                            }
+                            {
+                                let mut st = shared_clone.start_time.blocking_write();
+                                *st = None;
                             }
                             let mut st = shared_clone.state.blocking_write();
                             *st = PlaybackState::Paused;
@@ -210,31 +221,59 @@ impl AudioEngine {
                                 *sp = 0.0;
                             }
                         }
-                        AudioCommand::Seek(pos_secs) => {
-                            let _ = sink
-                                .try_seek(std::time::Duration::from_secs_f64(pos_secs));
-                            {
-                                let mut sp = shared_clone.saved_position.blocking_write();
-                                *sp = pos_secs;
-                            }
-                            {
-                                let st = shared_clone.start_time.blocking_read();
-                                if st.is_some() {
-                                    let new_start = std::time::Instant::now()
-                                        - std::time::Duration::from_secs_f64(pos_secs);
-                                    drop(st);
-                                    let mut st = shared_clone.start_time.blocking_write();
-                                    *st = Some(new_start);
+                        AudioCommand::Seek(pos_secs, result_tx) => {
+                            let seek_result = if pos_secs.is_finite() && pos_secs >= 0.0 {
+                                sink.try_seek(std::time::Duration::from_secs_f64(pos_secs))
+                                    .map_err(|e| {
+                                        crate::core::error::AppError::PlaybackError(format!(
+                                            "Failed to seek playback: {}",
+                                            e
+                                        ))
+                                    })
+                            } else {
+                                Err(crate::core::error::AppError::PlaybackError(
+                                    "Seek position must be a non-negative finite number"
+                                        .to_string(),
+                                ))
+                            };
+
+                            match seek_result {
+                                Ok(()) => {
+                                    {
+                                        let mut sp = shared_clone.saved_position.blocking_write();
+                                        *sp = pos_secs;
+                                    }
+                                    {
+                                        let st = shared_clone.start_time.blocking_read();
+                                        if st.is_some() {
+                                            drop(st);
+                                            let mut st = shared_clone.start_time.blocking_write();
+                                            *st = Some(std::time::Instant::now());
+                                        }
+                                    }
+                                    {
+                                        let mut p =
+                                            shared_clone.current_position_secs.blocking_write();
+                                        *p = pos_secs;
+                                    }
+                                    let _ = result_tx.send(Ok(()));
+                                }
+                                Err(e) => {
+                                    let _ = result_tx.send(Err(e));
                                 }
                             }
-                            {
-                                let mut p =
-                                    shared_clone.current_position_secs.blocking_write();
-                                *p = pos_secs;
-                            }
                         }
-                        AudioCommand::SetVolume(vol) => {
-                            sink.set_volume(vol);
+                        AudioCommand::SetVolume(vol, result_tx) => {
+                            if (0.0..=1.0).contains(&vol) {
+                                sink.set_volume(vol);
+                                let _ = result_tx.send(Ok(()));
+                            } else {
+                                let _ = result_tx.send(Err(
+                                    crate::core::error::AppError::PlaybackError(
+                                        "Volume must be between 0.0 and 1.0".to_string(),
+                                    ),
+                                ));
+                            }
                         }
                     },
                     Err(mpsc::TryRecvError::Empty) => {
@@ -242,7 +281,8 @@ impl AudioEngine {
                         {
                             let st = shared_clone.start_time.blocking_read();
                             if let Some(t) = *st {
-                                cur_pos = t.elapsed().as_secs_f64();
+                                let saved = shared_clone.saved_position.blocking_read();
+                                cur_pos = *saved + t.elapsed().as_secs_f64();
                             } else {
                                 let sp = shared_clone.saved_position.blocking_read();
                                 cur_pos = *sp;
@@ -263,9 +303,17 @@ impl AudioEngine {
                                     *st = PlaybackState::Idle;
                                     cur_pos = 0.0;
                                     {
-                                        let mut st =
-                                            shared_clone.start_time.blocking_write();
+                                        let mut st = shared_clone.start_time.blocking_write();
                                         *st = None;
+                                    }
+                                    {
+                                        let mut sp = shared_clone.saved_position.blocking_write();
+                                        *sp = 0.0;
+                                    }
+                                    {
+                                        let mut p =
+                                            shared_clone.current_position_secs.blocking_write();
+                                        *p = 0.0;
                                     }
                                     shared_clone
                                         .playback_ended_flag
@@ -285,16 +333,58 @@ impl AudioEngine {
     }
 
     fn play_sync(url: &str, sink: &mut Sink) -> Result<f64> {
-        let client = reqwest::blocking::Client::new();
-        let response = client
-            .get(url)
-            .send()
-            .map_err(|e| {
+        if url.starts_with("file://") {
+            let file_path = url::Url::parse(url)
+                .map_err(|e| {
+                    crate::core::error::AppError::PlaybackError(format!(
+                        "Invalid local audio URL: {}",
+                        e
+                    ))
+                })?
+                .to_file_path()
+                .map_err(|_| {
+                    crate::core::error::AppError::PlaybackError(
+                        "Invalid local audio file path".to_string(),
+                    )
+                })?;
+            let file = std::fs::File::open(&file_path).map_err(|e| {
                 crate::core::error::AppError::PlaybackError(format!(
-                    "Failed to fetch audio: {}",
+                    "Failed to open local audio file {}: {}",
+                    file_path.display(),
                     e
                 ))
             })?;
+            let decoder = Decoder::new(std::io::BufReader::new(file)).map_err(|e| {
+                crate::core::error::AppError::PlaybackError(format!(
+                    "Failed to decode local audio: {}",
+                    e
+                ))
+            })?;
+            let total_secs = decoder.total_duration().map_or(0.0, |d| d.as_secs_f64());
+            sink.append(decoder);
+            return Ok(total_secs);
+        }
+
+        let client = reqwest::blocking::Client::builder()
+            .connect_timeout(Duration::from_secs(8))
+            .timeout(Duration::from_secs(20))
+            .build()
+            .map_err(|e| {
+                crate::core::error::AppError::PlaybackError(format!(
+                    "Failed to create audio HTTP client: {}",
+                    e
+                ))
+            })?;
+        let response = client.get(url).send().map_err(|e| {
+            crate::core::error::AppError::PlaybackError(format!("Failed to fetch audio: {}", e))
+        })?;
+
+        if !response.status().is_success() {
+            return Err(crate::core::error::AppError::PlaybackError(format!(
+                "Audio request failed with HTTP status {}",
+                response.status()
+            )));
+        }
 
         let bytes = response.bytes().map_err(|e| {
             crate::core::error::AppError::PlaybackError(format!(
@@ -303,12 +393,15 @@ impl AudioEngine {
             ))
         })?;
 
+        if bytes.is_empty() {
+            return Err(crate::core::error::AppError::PlaybackError(
+                "Audio response was empty".to_string(),
+            ));
+        }
+
         let cursor = std::io::Cursor::new(bytes.to_vec());
         let decoder = Decoder::new(cursor).map_err(|e| {
-            crate::core::error::AppError::PlaybackError(format!(
-                "Failed to decode audio: {}",
-                e
-            ))
+            crate::core::error::AppError::PlaybackError(format!("Failed to decode audio: {}", e))
         })?;
 
         let total_secs = decoder.total_duration().map_or(0.0, |d| d.as_secs_f64());
@@ -318,67 +411,118 @@ impl AudioEngine {
     }
 
     pub async fn play(&self, url: &str) -> Result<()> {
+        let (result_tx, result_rx) = mpsc::channel();
         self.shared
             .sender
-            .send(AudioCommand::Play(url.to_string()))
+            .send(AudioCommand::Play(url.to_string(), result_tx))
             .map_err(|e| {
                 crate::core::error::AppError::PlaybackError(format!(
                     "Failed to send play command: {}",
                     e
                 ))
-            })
+            })?;
+
+        tokio::task::spawn_blocking(move || {
+            result_rx.recv().map_err(|e| {
+                crate::core::error::AppError::PlaybackError(format!(
+                    "Failed to receive play result: {}",
+                    e
+                ))
+            })?
+        })
+        .await
+        .map_err(|e| {
+            crate::core::error::AppError::PlaybackError(format!(
+                "Failed to join play result task: {}",
+                e
+            ))
+        })?
+        .map(|_| ())
     }
 
     pub async fn pause(&self) -> Result<()> {
-        self.shared
-            .sender
-            .send(AudioCommand::Pause)
-            .map_err(|e| {
-                crate::core::error::AppError::PlaybackError(format!(
-                    "Failed to send pause command: {}",
-                    e
-                ))
-            })
+        self.shared.sender.send(AudioCommand::Pause).map_err(|e| {
+            crate::core::error::AppError::PlaybackError(format!(
+                "Failed to send pause command: {}",
+                e
+            ))
+        })
     }
 
     pub async fn resume(&self) -> Result<()> {
-        self.shared
-            .sender
-            .send(AudioCommand::Resume)
-            .map_err(|e| {
-                crate::core::error::AppError::PlaybackError(format!(
-                    "Failed to send resume command: {}",
-                    e
-                ))
-            })
+        self.shared.sender.send(AudioCommand::Resume).map_err(|e| {
+            crate::core::error::AppError::PlaybackError(format!(
+                "Failed to send resume command: {}",
+                e
+            ))
+        })
     }
 
     pub async fn stop(&self) -> Result<()> {
-        self.shared
-            .sender
-            .send(AudioCommand::Stop)
-            .map_err(|e| {
-                crate::core::error::AppError::PlaybackError(format!(
-                    "Failed to send stop command: {}",
-                    e
-                ))
-            })
+        self.shared.sender.send(AudioCommand::Stop).map_err(|e| {
+            crate::core::error::AppError::PlaybackError(format!(
+                "Failed to send stop command: {}",
+                e
+            ))
+        })
     }
 
     pub async fn seek_to(&self, position_secs: f64) -> Result<()> {
+        let (result_tx, result_rx) = mpsc::channel();
         self.shared
             .sender
-            .send(AudioCommand::Seek(position_secs))
+            .send(AudioCommand::Seek(position_secs, result_tx))
             .map_err(|e| {
                 crate::core::error::AppError::PlaybackError(format!(
                     "Failed to send seek command: {}",
                     e
                 ))
-            })
+            })?;
+
+        tokio::task::spawn_blocking(move || {
+            result_rx.recv().map_err(|e| {
+                crate::core::error::AppError::PlaybackError(format!(
+                    "Failed to receive seek result: {}",
+                    e
+                ))
+            })?
+        })
+        .await
+        .map_err(|e| {
+            crate::core::error::AppError::PlaybackError(format!(
+                "Failed to join seek result task: {}",
+                e
+            ))
+        })?
     }
 
-    pub async fn set_volume(&self, volume: f32) {
-        let _ = self.shared.sender.send(AudioCommand::SetVolume(volume));
+    pub async fn set_volume(&self, volume: f32) -> Result<()> {
+        let (result_tx, result_rx) = mpsc::channel();
+        self.shared
+            .sender
+            .send(AudioCommand::SetVolume(volume, result_tx))
+            .map_err(|e| {
+                crate::core::error::AppError::PlaybackError(format!(
+                    "Failed to send volume command: {}",
+                    e
+                ))
+            })?;
+
+        tokio::task::spawn_blocking(move || {
+            result_rx.recv().map_err(|e| {
+                crate::core::error::AppError::PlaybackError(format!(
+                    "Failed to receive volume result: {}",
+                    e
+                ))
+            })?
+        })
+        .await
+        .map_err(|e| {
+            crate::core::error::AppError::PlaybackError(format!(
+                "Failed to join volume result task: {}",
+                e
+            ))
+        })?
     }
 
     pub async fn get_progress(&self) -> (std::time::Duration, std::time::Duration) {

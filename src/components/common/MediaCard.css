@@ -1,5 +1,5 @@
 .media-card {
-  background-color: var(--surface-bg);
+  background-color: var(--surface-bg, var(--surface));
   padding: 16px;
   border-radius: 8px;
   cursor: pointer;
@@ -43,7 +43,7 @@
   height: 48px;
   border-radius: 50%;
   background-color: var(--accent-magenta);
-  color: #fff;
+  color: var(--text-on-accent);
   border: none;
   display: flex;
   align-items: center;

@@ -1,16 +1,17 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { subscribePlayerEvents } from './store/playerStore';
+import { ToastProvider } from './components/common/Toast';
 import { subscribeDownloadEvents } from './store/downloadStore';
 import './styles/global.css';
 import './styles/utilities.css';
 
-subscribePlayerEvents();
 subscribeDownloadEvents();
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </React.StrictMode>
 );

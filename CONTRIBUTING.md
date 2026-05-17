@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你对 Music Player 项目的关注！我们欢迎所有形式的贡献，无论是代码提交、文档改进、Bug 报告还是功能建议。
+感谢你对 AurisLeft 项目的关注！我们欢迎所有形式的贡献，无论是代码提交、文档改进、Bug 报告还是功能建议。
 
 ## 📋 目录
 
@@ -45,14 +45,14 @@
 ### 2. 克隆仓库
 
 ```bash
-git clone https://github.com/<你的用户名>/music-player.git
-cd music-player
+git clone https://github.com/<你的用户名>/AurisLeft.git
+cd AurisLeft
 ```
 
 ### 3. 添加上游远程仓库
 
 ```bash
-git remote add upstream https://github.com/your-org/music-player.git
+git remote add upstream https://github.com/Li7ky/AurisLeft.git
 ```
 
 ### 4. 创建特性分支
@@ -74,7 +74,7 @@ git checkout -b feat/your-feature-name
 
 ```bash
 npm install
-npm run tauri dev
+npm run dev
 ```
 
 ### 6. 开发与测试
@@ -192,13 +192,13 @@ git push origin feat/your-feature-name
 
 ### 提交前检查
 
-- 搜索 [现有 Issues](https://github.com/your-org/music-player/issues)，确认该 Bug 未被报告
+- 搜索 [现有 Issues](https://github.com/Li7ky/AurisLeft/issues)，确认该 Bug 未被报告
 - 尝试使用最新版本复现问题
 - 收集尽可能多的复现信息
 
 ### 提交 Bug 报告
 
-请通过 [Issue 模板](https://github.com/your-org/music-player/issues/new?template=bug_report.md) 提交，包含以下信息:
+请通过 [Issue 模板](https://github.com/Li7ky/AurisLeft/issues/new?template=bug_report.md) 提交，包含以下信息:
 
 - **问题描述**: 简明扼要地描述问题
 - **复现步骤**: 详细的操作步骤，帮助开发者复现
@@ -237,12 +237,12 @@ git push origin feat/your-feature-name
 
 ### 提交前检查
 
-- 搜索 [现有 Issues](https://github.com/your-org/music-player/issues)，确认该建议未被提出
+- 搜索 [现有 Issues](https://github.com/Li7ky/AurisLeft/issues)，确认该建议未被提出
 - 思考该功能是否与项目定位相符
 
 ### 提交功能建议
 
-请通过 [功能建议模板](https://github.com/your-org/music-player/issues/new?template=feature_request.md) 提交，包含以下信息:
+请通过 [功能建议模板](https://github.com/Li7ky/AurisLeft/issues/new?template=feature_request.md) 提交，包含以下信息:
 
 - **功能描述**: 你想要什么功能
 - **使用场景**: 这个功能解决什么问题
@@ -270,7 +270,7 @@ git push origin feat/your-feature-name
 
 如果你有任何其他问题，可以通过以下方式联系:
 
-- 创建 [Discussion](https://github.com/your-org/music-player/discussions)
+- 创建 [Discussion](https://github.com/Li7ky/AurisLeft/discussions)
 - 发送邮件至 maintainers@example.com
 
 ---

@@ -42,10 +42,26 @@ export function useLocalMusic() {
   }, []);
 
   const addDir = useCallback(async () => {
-    const dirPath = window.prompt('请输入音乐文件夹路径：');
-    if (dirPath && dirPath.trim()) {
-      await addLocalMusicDir(dirPath.trim());
+    const dirPath = window.prompt(
+      '当前未安装 Tauri 文件夹选择插件，请手动输入音乐文件夹的完整路径（例如 D:/Music）：'
+    );
+    const trimmedPath = dirPath?.trim();
+
+    if (dirPath === null) {
+      return;
+    }
+
+    if (!trimmedPath) {
+      setScanProgress('添加目录失败：路径不能为空');
+      return;
+    }
+
+    try {
+      await addLocalMusicDir(trimmedPath);
       await loadDirs();
+      setScanProgress(`已添加本地音乐目录：${trimmedPath}`);
+    } catch (error) {
+      setScanProgress(`添加目录失败，请确认路径存在且可访问：${error}`);
     }
   }, [loadDirs]);
 

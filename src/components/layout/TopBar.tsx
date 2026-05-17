@@ -53,7 +53,7 @@ export default function TopBar() {
 
         {/* 功能入口 */}
         <div className="flex-center" style={{ gap: 'var(--space-xs)' }}>
-          <button className="btn--icon" title="最近播放">
+          <button className="btn--icon" title="最近播放" onClick={() => navigate('/home')}>
             <History size={20} />
           </button>
           <button className="btn--icon" title="通知中心">
