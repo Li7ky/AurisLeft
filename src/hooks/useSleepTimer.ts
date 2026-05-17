@@ -31,9 +31,9 @@ export function useSleepTimer() {
 
   useEffect(() => {
     const unlistenPromise = listen('sleep-timer-tick', (event) => {
-      const payload = event.payload as { remaining_seconds: number; is_active: boolean };
-      setIsActive(payload.is_active);
-      setRemaining(payload.remaining_seconds);
+      const payload = event.payload as { remainingSeconds: number; isActive: boolean };
+      setIsActive(payload.isActive);
+      setRemaining(payload.remainingSeconds);
     });
 
     return () => {

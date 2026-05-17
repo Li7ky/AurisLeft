@@ -3,6 +3,7 @@ use tauri::Emitter;
 use tokio::sync::Mutex;
 
 #[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SleepTimerStatus {
     pub is_active: bool,
     pub remaining_seconds: u64,

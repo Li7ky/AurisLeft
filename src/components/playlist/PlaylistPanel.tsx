@@ -101,7 +101,14 @@ function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
       </div>
       <div className="playlist-row__duration">{formatDuration(song.duration)}</div>
       <div className="playlist-row__actions">
-        <button className="playlist-row__more-btn" aria-label="更多操作">
+        <button
+          className="playlist-row__more-btn"
+          aria-label="更多操作"
+          onClick={(e) => {
+            e.stopPropagation();
+            onContextMenu(e, song);
+          }}
+        >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <circle cx="12" cy="6" r="2" />
             <circle cx="12" cy="12" r="2" />
@@ -296,7 +303,7 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
             {createdDate && <span>· {createdDate}</span>}
           </div>
           <div className="playlist-panel__actions">
-            <button className="btn btn--primary" onClick={handlePlayAll} disabled={songs.length === 0}>
+            <button className="btn btn--primary" onClick={handlePlayAll}>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                 <polygon points="8 5 19 12 8 19" />
               </svg>

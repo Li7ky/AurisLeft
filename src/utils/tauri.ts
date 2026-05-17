@@ -12,8 +12,12 @@ import type {
 } from '../types';
 import type { SleepTimerStatus } from '../types';
 
-export async function registerSource(path: string): Promise<SourceInfo> {
-  return invoke<SourceInfo>('register_source', { path });
+export async function registerSource(
+  sourceType: 'json' | 'js',
+  name: string,
+  content: string
+): Promise<SourceInfo> {
+  return invoke<SourceInfo>('register_source', { sourceType, name, content });
 }
 
 export async function listSources(): Promise<SourceInfo[]> {

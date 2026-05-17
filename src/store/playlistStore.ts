@@ -111,7 +111,7 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   },
 
   setCurrentPlaylist: (playlist: Playlist | null) => {
-    set({ currentPlaylist: playlist, songs: playlist ? get().songs : [] });
+    set({ currentPlaylist: playlist, songs: [] });
   },
 
   loadSongs: async (playlistId: number, toast?: ToastFn) => {
