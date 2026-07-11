@@ -60,24 +60,129 @@
   color: var(--text-secondary);
 }
 
+.settings-source-section {
+  margin-top: 16px;
+}
+
+.settings-source-section__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-base, var(--text-primary));
+  margin-bottom: 6px;
+}
+
+.settings-source-section__badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary, var(--primary)) 16%, transparent);
+  color: var(--accent-primary, var(--primary));
+}
+
+.settings-source-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .settings-source-item {
-  padding: 8px 12px;
+  padding: 10px 12px;
   background: color-mix(in srgb, var(--surface) 72%, var(--background));
   border: 1px solid var(--border);
-  border-radius: 6px;
-  margin-bottom: 6px;
+  border-radius: 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+}
+
+.settings-source-item--lx {
+  background: color-mix(in srgb, var(--accent-primary, var(--primary)) 6%, var(--bg-elevated, var(--surface)));
+}
+
+.settings-source-item__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .settings-source-item__name {
   color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-source-item__meta {
+  font-size: 11px;
+  color: var(--text-subdued, var(--text-secondary));
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-source-item__status {
+  flex-shrink: 0;
   font-size: 12px;
+  font-weight: 600;
   color: var(--primary);
+}
+
+.settings-source-item__status--warn {
+  color: #d97706;
+}
+
+/* 开关（按钮实现，避免伪元素错位） */
+.settings-toggle {
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  padding: 3px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-subdued, #888) 40%, #2a2a2e);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  transition: background 0.18s ease;
+  box-sizing: border-box;
+}
+
+.settings-toggle.is-on {
+  background: var(--accent-primary, #3ecf8e);
+  justify-content: flex-end;
+}
+
+.settings-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.settings-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-primary, #3ecf8e) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.settings-toggle__knob {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* 覆盖全局 button:active 缩放，避免开关按压缩动 */
+.settings-toggle:active {
+  transform: none;
 }
 
 .settings-select {

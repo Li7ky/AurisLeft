@@ -1,4 +1,8 @@
-import { invoke } from '@tauri-apps/api/core';
+/**
+ * Desktop API wrappers (Electron IPC).
+ * Historically named "tauri" from the previous shell; all calls go through invoke().
+ */
+import { invoke } from './ipc';
 import type {
   SourceInfo,
   Song,
@@ -9,8 +13,8 @@ import type {
   ThemeConfig,
   AppSettings,
   Quality,
+  SleepTimerStatus,
 } from '../types';
-import type { SleepTimerStatus } from '../types';
 
 export async function registerSource(
   sourceType: 'json' | 'js',
@@ -24,12 +28,41 @@ export async function listSources(): Promise<SourceInfo[]> {
   return invoke<SourceInfo[]>('list_sources');
 }
 
-export async function loadSourcesFromFile(): Promise<SourceInfo[]> {
-  return invoke<SourceInfo[]>('load_sources_from_file');
+export interface LxHostInfo {
+  id: string;
+  name: string;
+  version?: string;
+  ready: boolean;
+  enabled?: boolean;
+  platforms: string[];
+  hidden?: boolean;
 }
 
-export async function toggleSource(sourceId: string): Promise<void> {
+export async function getLxStatus(): Promise<{
+  enabled: boolean;
+  count: number;
+  total?: number;
+  ready?: boolean;
+  initializing?: boolean;
+  names: string[];
+  hosts?: LxHostInfo[];
+}> {
+  return invoke('get_lx_status');
+}
+
+export async function toggleLxSource(
+  sourceId: string,
+  enabled?: boolean
+): Promise<LxHostInfo> {
+  return invoke('toggle_lx_source', { sourceId, enabled });
+}
+
+export async function toggleSource(sourceId: string): Promise<unknown> {
   return invoke('toggle_source', { sourceId });
+}
+
+export async function loadSourcesFromFile(): Promise<SourceInfo[]> {
+  return invoke<SourceInfo[]>('load_sources_from_file');
 }
 
 export async function removeSource(sourceId: string): Promise<void> {
@@ -40,8 +73,12 @@ export async function searchMusic(keyword: string, page: number): Promise<Search
   return invoke<SearchResult>('search_music', { keyword, page });
 }
 
-export async function playSong(song: Song, quality: Quality): Promise<void> {
-  return invoke('play_song', { song, quality });
+/** Returns stream URL for renderer HTMLAudioElement */
+export async function playSong(
+  song: Song,
+  quality: Quality
+): Promise<{ url: string; duration: number } | void> {
+  return invoke<{ url: string; duration: number } | void>('play_song', { song, quality });
 }
 
 export async function pausePlayback(): Promise<void> {
@@ -128,12 +165,13 @@ export async function scanLocalMusic(): Promise<
     duration: number;
     fileSize: number;
     format: string;
+    coverUrl?: string | null;
   }[]
 > {
   return invoke('scan_local_music');
 }
 
-export async function playLocalFile(filePath: string): Promise<void> {
+export async function playLocalFile(filePath: string): Promise<{ url: string; duration: number }> {
   return invoke('play_local_file', { filePath });
 }
 
@@ -171,4 +209,28 @@ export async function cancelSleepTimer(): Promise<void> {
 
 export async function getSleepTimerStatus(): Promise<SleepTimerStatus> {
   return invoke<SleepTimerStatus>('get_sleep_timer_status');
+}
+
+export async function selectDirectory(): Promise<string | null> {
+  return invoke<string | null>('select_directory');
+}
+
+export async function toggleFavorite(song: Song): Promise<{ favorited: boolean }> {
+  return invoke<{ favorited: boolean }>('toggle_favorite', { song });
+}
+
+export async function listFavorites(): Promise<Song[]> {
+  return invoke<Song[]>('list_favorites');
+}
+
+export async function isFavorite(songId: string, source?: string): Promise<boolean> {
+  return invoke<boolean>('is_favorite', { songId, source });
+}
+
+export async function listRecentPlays(limit = 40): Promise<Song[]> {
+  return invoke<Song[]>('list_recent_plays', { limit });
+}
+
+export async function clearRecentPlays(): Promise<void> {
+  return invoke('clear_recent_plays');
 }

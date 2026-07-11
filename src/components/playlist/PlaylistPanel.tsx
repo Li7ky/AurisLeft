@@ -5,6 +5,8 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useToast } from '../common/Toast/useToast';
 import type { Playlist, PlaylistSong } from '../../types';
 import { Quality } from '../../types';
+import { playlistSongToSong, songKey } from '../../utils/song';
+import CoverImage from '../common/CoverImage';
 import './PlaylistPanel.css';
 
 function formatDuration(seconds: number | null): string {
@@ -21,11 +23,12 @@ interface SongRowProps {
   moveRow: (fromIndex: number, toIndex: number) => void;
 }
 
-function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
-  const play = usePlayerStore((s) => s.play);
+function SongRow({ song, index, onContextMenu, moveRow, allSongs }: SongRowProps & { allSongs: PlaylistSong[] }) {
+  const playList = usePlayerStore((s) => s.playList);
   const currentSong = usePlayerStore((s) => s.currentSong);
   const { addToast } = useToast();
-  const isActive = currentSong?.songId === song.songId && currentSong?.source === song.source;
+  const mapped = playlistSongToSong(song);
+  const isActive = currentSong ? songKey(currentSong) === songKey(mapped) : false;
 
   const [{ isDragging }, drag] = useDrag({
     type: 'playlist-song',
@@ -44,22 +47,8 @@ function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
   });
 
   const handlePlay = () => {
-    const quality = Quality.K320;
-    play(
-      {
-        id: song.songId,
-        name: song.name,
-        artist: song.artist,
-        album: song.album ?? '',
-        duration: song.duration ?? 0,
-        coverUrl: song.coverUrl,
-        source: song.source,
-        songId: song.songId,
-        qualities: song.qualities ?? [quality],
-      },
-      quality,
-      addToast
-    );
+    const list = allSongs.map((s) => playlistSongToSong(s));
+    void playList(list, index, Quality.K320, addToast);
   };
 
   return (
@@ -82,11 +71,9 @@ function SongRow({ song, index, onContextMenu, moveRow }: SongRowProps) {
         </button>
       </div>
       <div className="playlist-row__title">
-        {song.coverUrl ? (
-          <img className="playlist-row__cover" src={song.coverUrl} alt="" />
-        ) : (
-          <div className="playlist-row__cover playlist-row__cover--placeholder" />
-        )}
+        <div className="playlist-row__cover">
+          <CoverImage src={song.coverUrl} alt="" size={14} />
+        </div>
         <div className="playlist-row__title-text">
           <div className="playlist-row__name" title={song.name}>
             {song.name}
@@ -195,7 +182,7 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
   const removeSong = usePlaylistStore((s) => s.removeSong);
   const loadSongs = usePlaylistStore((s) => s.loadSongs);
   const reorderSongs = usePlaylistStore((s) => s.reorderSongs);
-  const play = usePlayerStore((s) => s.play);
+  const playList = usePlayerStore((s) => s.playList);
   const { addToast } = useToast();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -241,27 +228,12 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
   );
 
   const handlePlayAll = () => {
-    const firstSong = songs[0];
-    if (!firstSong) {
+    if (!songs.length) {
       addToast('歌单暂无歌曲，先去搜索页添加喜欢的音乐吧', 'info');
       return;
     }
-
-    play(
-      {
-        id: firstSong.songId,
-        name: firstSong.name,
-        artist: firstSong.artist,
-        album: firstSong.album ?? '',
-        duration: firstSong.duration ?? 0,
-        coverUrl: firstSong.coverUrl,
-        source: firstSong.source,
-        songId: firstSong.songId,
-        qualities: firstSong.qualities ?? [Quality.K320],
-      },
-      Quality.K320,
-      addToast
-    );
+    const list = songs.map((s) => playlistSongToSong(s));
+    void playList(list, 0, Quality.K320, addToast);
   };
 
   if (!playlist) {
@@ -285,15 +257,7 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
     <div className="playlist-panel" onClick={closeContextMenu}>
       <div className="playlist-panel__header">
         <div className="playlist-panel__header-cover">
-          {songs[0]?.coverUrl ? (
-            <img src={songs[0].coverUrl} alt="" />
-          ) : (
-            <div className="playlist-panel__header-cover--placeholder">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
-            </div>
-          )}
+          <CoverImage src={songs[0]?.coverUrl} alt="" size={40} />
         </div>
         <div className="playlist-panel__header-info">
           <span className="playlist-panel__label">播放列表</span>
@@ -341,6 +305,7 @@ export default function PlaylistPanel({ playlist }: PlaylistPanelProps) {
               key={song.id}
               song={song}
               index={idx}
+              allSongs={songs}
               onContextMenu={handleContextMenu}
               moveRow={moveRow}
             />

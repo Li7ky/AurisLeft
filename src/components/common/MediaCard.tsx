@@ -1,5 +1,5 @@
-import React from 'react';
 import { Play } from 'lucide-react';
+import CoverImage from './CoverImage';
 import './MediaCard.css';
 
 interface MediaCardProps {
@@ -12,32 +12,29 @@ interface MediaCardProps {
   onPlayClick?: (e: React.MouseEvent) => void;
 }
 
-export const MediaCard: React.FC<MediaCardProps> = ({
+export function MediaCard({
   title,
   subtitle,
   coverUrl,
   type = 'playlist',
   onClick,
   onPlayClick,
-}) => {
+}: MediaCardProps) {
   return (
     <div className={`media-card media-card--${type}`} onClick={onClick}>
       <div className="media-card__cover-wrapper">
-        <img 
-          src={coverUrl || '/tauri.svg'} 
-          alt={title} 
-          className="media-card__cover" 
-          loading="lazy"
-        />
-        <button 
-          className="media-card__play-btn" 
-          onClick={(e) => {
-            e.stopPropagation();
-            onPlayClick?.(e);
-          }}
-        >
-          <Play size={20} fill="currentColor" />
-        </button>
+        <CoverImage src={coverUrl} alt={title} className="media-card__cover" size={28} />
+        {onPlayClick && (
+          <button
+            className="media-card__play-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlayClick(e);
+            }}
+          >
+            <Play size={18} fill="currentColor" />
+          </button>
+        )}
       </div>
       <div className="media-card__info">
         <h4 className="media-card__title truncate">{title}</h4>
@@ -45,4 +42,4 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       </div>
     </div>
   );
-};
+}

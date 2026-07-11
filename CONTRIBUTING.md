@@ -1,38 +1,31 @@
 # 贡献指南
 
-感谢你对 AurisLeft 项目的关注！我们欢迎所有形式的贡献，无论是代码提交、文档改进、Bug 报告还是功能建议。
+感谢你对 AurisLeft 项目的关注。欢迎任何形式的贡献，包括代码提交、文档改进、Bug 报告或功能建议。
 
-## 📋 目录
+## 目录
 
 - [开发环境要求](#开发环境要求)
 - [如何贡献代码](#如何贡献代码)
 - [代码规范](#代码规范)
-- [提交流程](#提交流程)
+- [提交规范](#提交规范)
 - [如何报告 Bug](#如何报告-bug)
-- [如何提出功能建议](#如何提出功能建议)
+- [如何提交功能建议](#如何提交功能建议)
 
 ## 开发环境要求
 
-在开始开发之前，请确保你的开发环境满足以下要求：
+在开始开发之前，请确保你的环境满足以下要求。
 
-### 系统依赖
+### 系统要求
 
 - **Node.js** >= 20.0.0
-- **npm** >= 10.0.0 (或其他兼容的包管理器)
-- **Rust** >= 1.70.0
-- **系统构建工具链**:
-  - **Windows**: Visual Studio 2022 或更高版本，需安装 "使用 C++ 的桌面开发" 工作负载
-  - **macOS**: Xcode Command Line Tools (`xcode-select --install`)
-  - **Linux**: `build-essential`, `libwebkit2gtk-4.1-dev`, `libssl-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`
+- **npm** >= 10.0.0
 
-> 完整的系统依赖说明请参考 [Tauri 官方 prerequisites 文档](https://tauri.app/start/prerequisites/)。
+当前主路径为 **Electron + React**，无需安装 Rust / Tauri。
 
 ### 推荐的 IDE 配置
 
 - [VS Code](https://code.visualstudio.com/)
 - 扩展推荐:
-  - [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode)
-  - [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
   - [ES7+ React/Redux/React-Native snippets](https://marketplace.visualstudio.com/items?itemName=dsznajder.es7-react-js-snippets)
   - [Prettier - Code formatter](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 
@@ -63,216 +56,76 @@ git checkout -b feat/your-feature-name
 
 分支命名规范:
 
-| 前缀 | 说明 | 示例 |
+| 分支 / 前缀 | 说明 | 示例 |
 |------|------|------|
-| `feat/` | 新功能 | `feat/add-lyric-sync` |
+| `测试版` | 当前联调与体验用测试通道（beta） | `测试版` |
+| `正式版` / `main` | 稳定后上线用（发布通道） | `main`、`正式版` |
+| `feat/` | 新功能（从测试版拉出） | `feat/add-lyric-sync` |
 | `fix/` | Bug 修复 | `fix/player-crash-on-playlist` |
-| `chore/` | 构建/工具/文档 | `chore/update-readme` |
+| `chore/` | 杂务/构建/文档 | `chore/update-readme` |
 | `refactor/` | 代码重构 | `refactor/source-manager` |
 
-### 5. 启动开发服务器
+### 5. 安装依赖并启动
 
 ```bash
 npm install
 npm run dev
 ```
 
-### 6. 开发与测试
+国内若 Electron 下载失败，可设置：
 
-在开发过程中，确保：
+```powershell
+$env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
+npm install
+```
 
-- 新增的功能有对应的测试（如适用）
-- 所有现有测试通过
-- 代码符合项目的编码规范
+### 6. 完成你的更改
+
+在提交前请确保：
+
+- 运行 `npm run typecheck` 通过
+- 相关播放 / 搜索 / 设置路径手动验证通过
+- 遵循项目的代码规范
 
 ## 代码规范
 
 ### 通用规范
 
-- **代码风格**: 使用 Prettier 进行格式化，项目已包含 `.prettierrc` 配置
+- **格式化**: 使用 Prettier 进行格式化，项目已包含 `.prettierrc` 配置
 - **命名规范**:
-  - 文件/目录: kebab-case (`source-manager.ts`)
-  - 组件: PascalCase (`PlayerControl.tsx`)
-  - 变量/函数: camelCase (`getPlaylist()`)
+  - 文件/目录: kebab-case 或与现有目录一致（`pages/Home`）
+  - 组件: PascalCase (`PlayerBar.tsx`)
+  - 函数/变量: camelCase (`getPlaylist()`)
   - 常量: UPPER_SNAKE_CASE (`MAX_RETRY_COUNT`)
-- **注释**: 复杂逻辑需添加注释，公共 API 使用 JSDoc 风格的文档注释
-- **代码异味**: 避免超长函数（建议 < 50 行），保持单一职责
+- **注释**: 复杂逻辑需要注释；公共 API 使用 JSDoc 风格文档注释
 
-### TypeScript 规范
+### 架构提示
 
-- 优先使用接口而非类型别名
-- 避免使用 `any`，使用 `unknown` 替代
-- 明确的函数返回值类型
+- 渲染进程 UI 与状态：`src/`
+- 主进程 IPC / 音源 / 存储：`electron/`
+- 前端调用桌面能力：`src/utils/tauri.ts`（Electron IPC 封装，历史命名）
+- 路由使用 `HashRouter`（兼容 `file://` 打包加载）
 
-### React 规范
+## 提交规范
 
-- 使用函数式组件 + Hooks
-- 自定义 Hook 以 `use` 开头
-- 组件文件使用 `.tsx` 扩展名
-- Props 使用 interface 定义并导出
+提交信息建议使用简洁的英文或中文说明「改了什么 / 为什么」：
 
-### Rust 规范 (Tauri Command)
-
-- 遵循 [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
-- Tauri Command 函数使用 `snake_case` 命名
-- 错误处理使用 `Result<T, AppError>` 模式
-
-### 提交信息规范
-
-使用 [Conventional Commits](https://www.conventionalcommits.org/) 格式:
-
+```text
+fix(player): respect autoPlayNext and persist volume
+feat(local): extract embedded cover art
 ```
-<type>(<scope>): <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-Type 可选值: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`
-
-示例:
-
-```
-feat(player): 添加歌词同步滚动功能
-
-- 实现歌词时间戳解析
-- 支持滚动到当前播放行
-- 添加歌词样式高亮
-```
-
-### 格式化与检查
-
-提交前请运行:
-
-```bash
-# 格式化代码
-npx prettier --write .
-
-# TypeScript 类型检查
-npx tsc --noEmit
-```
-
-## 提交流程
-
-### 1. 保持分支同步
-
-```bash
-git fetch upstream
-git rebase upstream/main
-```
-
-### 2. 提交更改
-
-```bash
-git add .
-git commit -m "feat(scope): your commit message"
-```
-
-### 3. 推送分支
-
-```bash
-git push origin feat/your-feature-name
-```
-
-### 4. 创建 Pull Request
-
-1. 访问你的 Fork 仓库页面
-2. 点击 "Compare & pull request"
-3. 填写 PR 描述，关联相关 Issue（如适用）
-4. 等待代码审查
-
-### PR 审查流程
-
-- 提交 PR 后，维护者会进行代码审查
-- 可能需要你根据反馈进行修改
-- 审查通过后，PR 会被合并到主分支
 
 ## 如何报告 Bug
 
-### 提交前检查
+请尽量包含：
 
-- 搜索 [现有 Issues](https://github.com/Li7ky/AurisLeft/issues)，确认该 Bug 未被报告
-- 尝试使用最新版本复现问题
-- 收集尽可能多的复现信息
+1. 操作系统与应用版本
+2. 复现步骤
+3. 期望行为与实际行为
+4. 控制台 / 主进程日志（如有）
 
-### 提交 Bug 报告
+## 如何提交功能建议
 
-请通过 [Issue 模板](https://github.com/Li7ky/AurisLeft/issues/new?template=bug_report.md) 提交，包含以下信息:
+描述使用场景与期望交互即可；若已有类似能力（洛雪音源、歌单、本地库），请说明差异。
 
-- **问题描述**: 简明扼要地描述问题
-- **复现步骤**: 详细的操作步骤，帮助开发者复现
-- **期望行为**: 你认为应该发生什么
-- **实际行为**: 实际发生了什么
-- **环境信息**:
-  - 操作系统及版本
-  - 应用版本
-  - Node.js / Rust 版本
-- **截图/日志**: 如有错误截图或日志文件，请一并提供
-
-### Bug 报告示例
-
-```markdown
-### 问题描述
-播放列表中点击已删除的歌曲会导致应用崩溃
-
-### 复现步骤
-1. 创建一个播放列表，添加 3 首歌
-2. 删除第 2 首歌
-3. 点击播放列表中原本第 2 首歌的位置
-
-### 期望行为
-忽略点击或提示歌曲已删除
-
-### 实际行为
-应用闪退，控制台报错: TypeError: Cannot read properties of undefined
-
-### 环境信息
-- OS: Windows 11 23H2
-- App: v0.1.0
-- Node.js: v20.11.0
-```
-
-## 如何提出功能建议
-
-### 提交前检查
-
-- 搜索 [现有 Issues](https://github.com/Li7ky/AurisLeft/issues)，确认该建议未被提出
-- 思考该功能是否与项目定位相符
-
-### 提交功能建议
-
-请通过 [功能建议模板](https://github.com/Li7ky/AurisLeft/issues/new?template=feature_request.md) 提交，包含以下信息:
-
-- **功能描述**: 你想要什么功能
-- **使用场景**: 这个功能解决什么问题
-- **期望实现**: 你期望这个功能如何工作
-- **替代方案**: 是否有其他替代方案
-- **补充信息**: 截图、参考链接等额外信息
-
-### 功能建议示例
-
-```markdown
-### 功能描述
-希望支持定时停止播放功能
-
-### 使用场景
-睡前听音乐时，希望设置 30 分钟后自动停止
-
-### 期望实现
-在播放器界面添加「定时停止」按钮，支持自定义时间或预设选项（15/30/60 分钟）
-
-### 替代方案
-可以使用系统自带的定时任务，但体验不如内置功能
-```
-
-## 📞 联系我们
-
-如果你有任何其他问题，可以通过以下方式联系:
-
-- 创建 [Discussion](https://github.com/Li7ky/AurisLeft/discussions)
-- 发送邮件至 maintainers@example.com
-
----
-
-再次感谢你的贡献！🎉
+再次感谢你的贡献！

@@ -5,46 +5,46 @@
    ═══════════════════════════════════════════ */
 
   /* ── Base Surfaces ── */
-  --bg-base: #0a0a0f;
-  --bg-elevated: #12121a;
-  --bg-highlight: #1a1a25;
-  --bg-press: #060609;
-  --bg-tinted: rgba(255, 255, 255, 0.05);
-  --bg-glass: rgba(18, 18, 26, 0.75);
-  --bg-glass-heavy: rgba(10, 10, 15, 0.88);
+  --bg-base: #0c0e12;
+  --bg-elevated: #141820;
+  --bg-highlight: #1c2230;
+  --bg-press: #090b0f;
+  --bg-tinted: rgba(255, 255, 255, 0.045);
+  --bg-glass: rgba(20, 24, 32, 0.78);
+  --bg-glass-heavy: rgba(12, 14, 18, 0.9);
 
   /* ── Accent Palette ── */
-  --accent-cyan: #00d4ff;
-  --accent-purple: #a855f7;
-  --accent-magenta: #ec4899;
-  --accent-orange: #f97316;
-  --accent-green: #22c55e;
-  --accent-blue: #3b82f6;
-  --accent-primary: #00d4ff;
-  --accent-primary-dim: rgba(0, 212, 255, 0.15);
-  --accent-gradient: linear-gradient(135deg, #00d4ff, #a855f7);
-  --accent-gradient-warm: linear-gradient(135deg, #f97316, #ec4899);
+  --accent-cyan: #5ec8ff;
+  --accent-purple: #9b8cff;
+  --accent-magenta: #f472b6;
+  --accent-orange: #f0a35e;
+  --accent-green: #3dd68c;
+  --accent-blue: #5b8def;
+  --accent-primary: #e8a54b;
+  --accent-primary-dim: rgba(232, 165, 75, 0.16);
+  --accent-gradient: linear-gradient(135deg, #e8a54b, #9b8cff);
+  --accent-gradient-warm: linear-gradient(135deg, #f0a35e, #f472b6);
 
   /* ── Text Hierarchy ── */
-  --text-base: #f0f0f5;
-  --text-subdued: #7a7a8e;
-  --text-secondary: #9999ad;
-  --text-bright-accent: #00d4ff;
+  --text-base: #f3f1ec;
+  --text-subdued: #8a8794;
+  --text-secondary: #b0adb8;
+  --text-bright-accent: #e8a54b;
   --text-negative: #f15e6c;
-  --text-on-accent: #0a0a0f;
+  --text-on-accent: #14110c;
 
   /* ── Essential Elements ── */
   --essential-base: #f0f0f5;
   --essential-subdued: #4a4a5e;
-  --essential-bright-accent: #00d4ff;
+  --essential-bright-accent: #e8a54b;
   --essential-negative: #e22134;
 
   /* ── Decorative ── */
-  --decorative-base: #0a0a0f;
-  --decorative-subdued: #1e1e2e;
+  --decorative-base: #0c0e12;
+  --decorative-subdued: #232836;
   --decorative-border: rgba(255, 255, 255, 0.06);
   --decorative-border-light: rgba(255, 255, 255, 0.1);
-  --decorative-glow: 0 0 20px rgba(0, 212, 255, 0.15);
+  --decorative-glow: 0 0 20px rgba(232, 165, 75, 0.16);
 
   /* ── Spacing Scale ── */
   --space-2xs: 2px;
@@ -100,15 +100,15 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.6);
   --shadow-xl: 0 16px 50px rgba(0, 0, 0, 0.7);
-  --shadow-glow-cyan: 0 0 15px rgba(0, 212, 255, 0.25);
-  --shadow-glow-purple: 0 0 15px rgba(168, 85, 247, 0.25);
+  --shadow-glow-cyan: 0 0 15px rgba(232, 165, 75, 0.28);
+  --shadow-glow-purple: 0 0 15px rgba(155, 140, 255, 0.25);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   /* ── Layout Constants ── */
-  --top-bar-height: 52px;
-  --sidebar-width: 220px;
+  --top-bar-height: 48px;
+  --sidebar-width: 232px;
   --right-panel-width: 320px;
-  --player-bar-height: 82px;
+  --player-bar-height: 80px;
 
   /* ── Z-Index Scale ── */
   --z-sidebar: 10;
@@ -194,7 +194,7 @@ body {
    Selection
    ═══════════════════════════════════════════ */
 ::selection {
-  background: rgba(0, 212, 255, 0.3);
+  background: rgba(232, 165, 75, 0.32);
   color: var(--text-base);
 }
 

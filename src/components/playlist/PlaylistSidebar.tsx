@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePlaylistStore } from '../../store/playlistStore';
 import { useToast } from '../common/Toast/useToast';
 import type { Playlist } from '../../types';
@@ -13,6 +14,7 @@ export default function PlaylistSidebar({
   onSelectPlaylist,
   selectedPlaylist,
 }: PlaylistSidebarProps) {
+  const navigate = useNavigate();
   const playlists = usePlaylistStore((s) => s.playlists);
   const createPlaylist = usePlaylistStore((s) => s.createPlaylist);
   const deletePlaylist = usePlaylistStore((s) => s.deletePlaylist);
@@ -69,10 +71,7 @@ export default function PlaylistSidebar({
         </button>
       </div>
 
-      <div
-        className="playlist-sidebar__item"
-        onClick={() => addToast('收藏功能即将支持', 'info')}
-      >
+      <div className="playlist-sidebar__item" onClick={() => navigate('/favorites')}>
         <span className="playlist-sidebar__icon">★</span>
         <span className="playlist-sidebar__name">收藏</span>
       </div>

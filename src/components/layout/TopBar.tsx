@@ -1,74 +1,146 @@
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react';
 import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Bell,
   Settings as SettingsIcon,
-  Crown,
-  History,
-  LayoutGrid,
+  Minus,
+  Square,
+  X,
+  Copy,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useSearchStore } from '../../store/searchStore';
+import { useToast } from '../common/Toast/useToast';
+import AppLogo from '../common/AppLogo';
 
 export default function TopBar() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const search = useSearchStore((s) => s.search);
+  const storeKeyword = useSearchStore((s) => s.keyword);
+  const { addToast } = useToast();
+  const [query, setQuery] = useState(storeKeyword || '');
+  const [maximized, setMaximized] = useState(false);
+  const isElectron = Boolean(window.electronAPI?.isElectron);
+
+  // 与全局搜索状态同步（避免顶栏/页面关键词不一致）
+  useEffect(() => {
+    setQuery(storeKeyword || '');
+  }, [storeKeyword]);
+
+  useEffect(() => {
+    if (!window.electronAPI?.windowControls) return;
+    void window.electronAPI.windowControls.isMaximized().then(setMaximized);
+    return window.electronAPI.on('window-state', (payload) => {
+      const p = payload as { maximized?: boolean };
+      if (typeof p?.maximized === 'boolean') setMaximized(p.maximized);
+    });
+  }, []);
+
+  // 进入搜索页时自动聚焦顶栏搜索框
+  useEffect(() => {
+    if (location.pathname === '/search') {
+      const el = document.querySelector<HTMLInputElement>('.top-bar__search-input');
+      el?.focus();
+    }
+  }, [location.pathname]);
+
+  const submitSearch = async () => {
+    const keyword = query.trim();
+    if (!keyword) {
+      navigate('/search');
+      return;
+    }
+    if (location.pathname !== '/search') {
+      navigate('/search');
+    }
+    await search(keyword, 1, addToast);
+  };
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    void submitSearch();
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void submitSearch();
+    }
+  };
 
   return (
     <header className="top-bar">
+      <div className="top-bar__drag" aria-hidden />
+
       <div className="top-bar__left">
-        {/* 品牌标识 */}
-        <div className="top-bar__logo" onClick={() => navigate('/home')}>
-          <LayoutGrid className="top-bar__logo-icon" />
-          <span className="top-bar__logo-text">AurisLeft</span>
+        <div className="top-bar__logo no-drag" onClick={() => navigate('/home')} title="首页">
+          <AppLogo size={28} showWordmark wordmarkClassName="top-bar__logo-text" />
         </div>
 
-        {/* 历史导航 */}
-        <div className="top-bar__nav-controls">
+        <div className="top-bar__nav-controls no-drag">
           <button className="btn--icon" onClick={() => window.history.back()} title="后退">
-            <ChevronLeft size={20} />
+            <ChevronLeft size={18} />
           </button>
           <button className="btn--icon" onClick={() => window.history.forward()} title="前进">
-            <ChevronRight size={20} />
+            <ChevronRight size={18} />
           </button>
         </div>
 
-        {/* 全局搜索 */}
-        <div className="top-bar__search">
-          <Search className="top-bar__search-icon" size={16} />
+        <form className="top-bar__search no-drag" onSubmit={onSubmit}>
+          <Search className="top-bar__search-icon" size={15} />
           <input
             type="search"
-            placeholder="搜索音乐、艺人、专辑..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onKeyDown}
+            onFocus={() => {
+              if (location.pathname !== '/search') navigate('/search');
+            }}
+            placeholder="搜索歌曲、歌手、专辑…（回车）"
             className="input top-bar__search-input"
-            onFocus={() => navigate('/search')}
+            aria-label="全局搜索"
           />
-        </div>
+        </form>
       </div>
 
-      <div className="top-bar__right">
-        {/* 会员/权益入口 */}
-        <button className="btn btn--subtle" style={{ color: 'var(--accent-orange)' }}>
-          <Crown size={16} />
-          <span>尊享会员</span>
+      <div className="top-bar__right no-drag">
+        <button className="btn--icon" title="设置" onClick={() => navigate('/settings')}>
+          <SettingsIcon size={18} />
         </button>
 
-        {/* 功能入口 */}
-        <div className="flex-center" style={{ gap: 'var(--space-xs)' }}>
-          <button className="btn--icon" title="最近播放" onClick={() => navigate('/home')}>
-            <History size={20} />
-          </button>
-          <button className="btn--icon" title="通知中心">
-            <Bell size={20} />
-          </button>
-          <button className="btn--icon" title="系统设置" onClick={() => navigate('/settings')}>
-            <SettingsIcon size={20} />
-          </button>
-        </div>
-
-        {/* 用户系统 */}
-        <div className="top-bar__user">
-          <div className="top-bar__avatar" />
-          <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>领主将军阁下</span>
-        </div>
+        {isElectron && (
+          <div className="top-bar__win-controls">
+            <button
+              type="button"
+              className="top-bar__win-btn"
+              title="最小化"
+              onClick={() => void window.electronAPI?.windowControls?.minimize()}
+            >
+              <Minus size={14} />
+            </button>
+            <button
+              type="button"
+              className="top-bar__win-btn"
+              title={maximized ? '还原' : '最大化'}
+              onClick={async () => {
+                const next = await window.electronAPI?.windowControls?.maximize();
+                if (typeof next === 'boolean') setMaximized(next);
+              }}
+            >
+              {maximized ? <Copy size={12} /> : <Square size={12} />}
+            </button>
+            <button
+              type="button"
+              className="top-bar__win-btn top-bar__win-btn--close"
+              title="关闭"
+              onClick={() => void window.electronAPI?.windowControls?.close()}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

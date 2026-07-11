@@ -51,6 +51,17 @@ export interface Song {
   source: string;
   songId: string;
   qualities: Quality[];
+  /** 网易云等：0 较易播，非 0 可能付费/版权限制 */
+  fee?: number;
+  /** 是否可能无法播放（前端展示用） */
+  playableHint?: 'ok' | 'maybe_vip' | 'unknown';
+  /** 洛雪平台：wy/kw/kg/tx/mg */
+  platform?: string;
+  platformLabel?: string;
+  /** 酷狗 hash */
+  hash?: string;
+  /** QQ strMediaMid */
+  strMediaMid?: string;
 }
 
 export interface LyricLine {
@@ -122,7 +133,7 @@ export interface PlaylistSong {
   duration: number | null;
   coverUrl: string | null;
   position: number;
-  qualities: Quality[];
+  qualities?: Quality[];
 }
 
 export interface SearchResult {
@@ -156,6 +167,8 @@ export interface LocalSong {
   duration: number;
   fileSize: number;
   format: string;
+  /** Embedded cover via aurislocal:// when available */
+  coverUrl?: string | null;
 }
 
 export interface SleepTimerStatus {

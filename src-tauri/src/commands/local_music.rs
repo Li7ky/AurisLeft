@@ -34,13 +34,22 @@ pub async fn scan_local_music(state: State<'_, AppState>) -> Result<Vec<LocalSon
 
 #[tauri::command]
 pub async fn play_local_file(state: State<'_, AppState>, file_path: String) -> Result<()> {
-    let url = if cfg!(target_os = "windows") {
-        format!("file:///{}", file_path.replace('\\', "/"))
-    } else {
-        format!("file://{}", file_path)
-    };
+    let path = PathBuf::from(&file_path);
+    if !path.exists() {
+        return Err(crate::core::error::AppError::PlaybackError(format!(
+            "本地文件不存在: {}",
+            file_path
+        )));
+    }
 
-    state.audio.play(&url).await
+    let url = url::Url::from_file_path(&path).map_err(|_| {
+        crate::core::error::AppError::PlaybackError(format!(
+            "无法解析本地文件路径: {}",
+            file_path
+        ))
+    })?;
+
+    state.audio.play(url.as_str()).await
 }
 
 #[tauri::command]

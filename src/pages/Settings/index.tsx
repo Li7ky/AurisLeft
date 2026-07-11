@@ -1,36 +1,70 @@
 import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useToast } from '../../components/common/Toast/useToast';
 import { Quality } from '../../types';
 import type { ThemeConfig } from '../../types';
+import {
+  listSources,
+  loadSourcesFromFile,
+  registerSource,
+  getLxStatus,
+  toggleLxSource,
+  toggleSource,
+  type LxHostInfo,
+} from '../../utils/tauri';
+import { invoke } from '../../utils/ipc';
 import './index.css';
 
 interface SourceInfo {
   id: string;
   name: string;
-  version: string;
+  version?: string;
+  enabled?: boolean;
+}
+
+interface LxStatus {
   enabled: boolean;
+  count: number;
+  total?: number;
+  ready?: boolean;
+  initializing?: boolean;
+  names: string[];
+  hosts?: LxHostInfo[];
+}
+
+const PLATFORM_LABEL: Record<string, string> = {
+  wy: '网易云',
+  kw: '酷我',
+  kg: '酷狗',
+  tx: 'QQ',
+  mg: '咪咕',
+  local: '本地',
+  git: 'Git',
+};
+
+function formatPlatforms(platforms: string[] = []) {
+  if (!platforms.length) return '—';
+  return platforms.map((p) => PLATFORM_LABEL[p] || p).join(' · ');
 }
 
 const PRESET_THEMES: { name: string; mode: '暗色' | '明亮'; theme: ThemeConfig }[] = [
   {
-    name: '暗夜绿',
+    name: '琥珀暖夜',
     mode: '暗色',
     theme: {
-      primary: '#1DB954',
-      background: '#121212',
-      surface: '#1e1e1e',
-      textPrimary: '#ffffff',
-      textSecondary: '#b3b3b3',
-      accent: '#1ed760',
+      primary: '#e8a54b',
+      background: '#0c0e12',
+      surface: '#141820',
+      textPrimary: '#f3f1ec',
+      textSecondary: '#8a8794',
+      accent: '#9b8cff',
     },
   },
   {
     name: '深海蓝',
     mode: '暗色',
     theme: {
-      primary: '#1a73e8',
+      primary: '#5b8def',
       background: '#0d1117',
       surface: '#161b22',
       textPrimary: '#e6edf3',
@@ -42,12 +76,12 @@ const PRESET_THEMES: { name: string; mode: '暗色' | '明亮'; theme: ThemeConf
     name: '暮光紫',
     mode: '暗色',
     theme: {
-      primary: '#8b5cf6',
-      background: '#13111c',
-      surface: '#1e1b2e',
-      textPrimary: '#ffffff',
+      primary: '#9b8cff',
+      background: '#121018',
+      surface: '#1c1828',
+      textPrimary: '#f5f3ff',
       textSecondary: '#a1a1aa',
-      accent: '#a78bfa',
+      accent: '#c4b5fd',
     },
   },
   {
@@ -94,25 +128,77 @@ export default function Settings() {
 
   const [customColor, setCustomColor] = useState(theme.primary);
   const [loadedSources, setLoadedSources] = useState<SourceInfo[]>([]);
+  const [lxStatus, setLxStatus] = useState<LxStatus | null>(null);
 
   useEffect(() => {
     setCustomColor(theme.primary);
   }, [theme.primary]);
 
-  // 设置页仅查询已加载音源，避免重复触发加载
   useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
     const refreshSources = async () => {
       try {
-        const sources = await invoke<SourceInfo[]>('list_sources');
+        const [sources, lx] = await Promise.all([
+          listSources(),
+          getLxStatus().catch(() => null),
+        ]);
+        if (cancelled) return;
         setLoadedSources(sources);
+        if (lx) setLxStatus(lx);
+        // 初始化中时轮询，直到就绪
+        if (lx?.initializing) {
+          timer = setTimeout(refreshSources, 1500);
+        }
       } catch (error) {
+        if (cancelled) return;
         const message = error instanceof Error ? error.message : String(error);
         addToast(`加载音源失败：${message}`, 'error');
       }
     };
 
     refreshSources();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [addToast]);
+
+  const refreshAll = async () => {
+    const [sources, lx] = await Promise.all([
+      listSources(),
+      getLxStatus().catch(() => null),
+    ]);
+    setLoadedSources(sources);
+    if (lx) setLxStatus(lx);
+  };
+
+  const handleToggleLx = async (host: LxHostInfo) => {
+    try {
+      const next = !(host.enabled !== false);
+      await toggleLxSource(host.id, next);
+      await refreshAll();
+      addToast(next ? `已开启「${host.name}」` : `已关闭「${host.name}」`, 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addToast(`切换失败：${message}`, 'error');
+    }
+  };
+
+  const handleToggleUserSource = async (source: SourceInfo) => {
+    try {
+      await toggleSource(source.id);
+      await refreshAll();
+      addToast(
+        source.enabled === false ? `已开启「${source.name}」` : `已关闭「${source.name}」`,
+        'success'
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addToast(`切换失败：${message}`, 'error');
+    }
+  };
 
   const handleImportSource = async () => {
     const input = document.createElement('input');
@@ -126,16 +212,13 @@ export default function Settings() {
 
       try {
         if (ext === 'json') {
-          // Save as sources.json config and load
           await invoke('save_sources_config', { content });
-          const sources = await invoke<SourceInfo[]>('load_sources_from_file');
-          setLoadedSources(sources);
+          await loadSourcesFromFile();
+          await refreshAll();
           addToast('音源导入成功', 'success');
         } else if (ext === 'js') {
-          // Register a single JS source directly
-          await invoke('register_js_source', { code: content });
-          const sources = await invoke<SourceInfo[]>('list_sources');
-          setLoadedSources(sources);
+          await registerSource('js', file.name, content);
+          await refreshAll();
           addToast('音源导入成功', 'success');
         } else {
           addToast('仅支持导入 .json 或 .js 音源文件', 'error');
@@ -184,20 +267,94 @@ export default function Settings() {
           <button onClick={handleImportSource} className="settings-btn settings-btn--primary">
             导入音源
           </button>
-          <div className="settings-note">当前已加载音源：{loadedSources.length} 个</div>
-          {loadedSources.length > 0 && (
-            <div className="settings-source-list" style={{ marginTop: '10px' }}>
-              {loadedSources.map((source) => (
-                <div
-                  key={source.id}
-                  className="settings-source-item"
-                >
-                  <span className="settings-source-item__name">{source.name}</span>
-                  <span className="settings-source-item__status">已启用</span>
-                </div>
-              ))}
+          <div className="settings-note" style={{ marginTop: 8 }}>
+            曲库搜索使用公开接口；播放取链仅使用下方已开启的音源。可单独开关每一项。
+          </div>
+
+          <div className="settings-source-section">
+            <div className="settings-source-section__title">
+              播放音源（洛雪兼容）
+              {lxStatus ? (
+                <span className="settings-source-section__badge">
+                  {lxStatus.initializing
+                    ? '初始化中…'
+                    : `已开 ${lxStatus.count}/${lxStatus.total ?? lxStatus.count}`}
+                </span>
+              ) : null}
             </div>
-          )}
+            <div className="settings-note">来自 pdone/lx-music-source，可自由开关。</div>
+            {lxStatus?.initializing && !(lxStatus.hosts?.length) ? (
+              <div className="settings-note" style={{ marginTop: 8, color: 'var(--accent-primary)' }}>
+                正在初始化音源，请稍候…
+              </div>
+            ) : null}
+            {lxStatus?.hosts && lxStatus.hosts.length > 0 ? (
+              <div className="settings-source-list">
+                {lxStatus.hosts.map((host) => {
+                  const on = host.enabled !== false;
+                  return (
+                    <div key={host.id} className="settings-source-item settings-source-item--lx">
+                      <div className="settings-source-item__main">
+                        <span className="settings-source-item__name">{host.name}</span>
+                        <span className="settings-source-item__meta">
+                          {host.ready ? '已就绪' : '未就绪'}
+                          {host.version ? ` · v${host.version}` : ''}
+                          {' · '}
+                          {formatPlatforms(host.platforms)}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        className={`settings-toggle${on ? ' is-on' : ''}`}
+                        title={on ? '点击关闭' : '点击开启'}
+                        disabled={!host.ready && !on}
+                        onClick={() => void handleToggleLx(host)}
+                      >
+                        <span className="settings-toggle__knob" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : !lxStatus?.initializing ? (
+              <div className="settings-note" style={{ marginTop: 8 }}>
+                暂无内置音源。请重启应用以重新加载。
+              </div>
+            ) : null}
+          </div>
+
+          {loadedSources.length > 0 ? (
+            <div className="settings-source-section">
+              <div className="settings-source-section__title">用户导入音源</div>
+              <div className="settings-source-list">
+                {loadedSources.map((source) => {
+                  const on = source.enabled !== false;
+                  return (
+                    <div key={source.id} className="settings-source-item">
+                      <div className="settings-source-item__main">
+                        <span className="settings-source-item__name">{source.name}</span>
+                        {source.version ? (
+                          <span className="settings-source-item__meta">v{source.version}</span>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        className={`settings-toggle${on ? ' is-on' : ''}`}
+                        title={on ? '点击关闭' : '点击开启'}
+                        onClick={() => void handleToggleUserSource(source)}
+                      >
+                        <span className="settings-toggle__knob" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -281,12 +438,25 @@ export default function Settings() {
 
       <section className="settings-group-card">
         <div className="settings-group-card__header">
+          <h3 className="settings-group-card__title">快捷键</h3>
+        </div>
+        <div className="settings-group-card__body settings-about">
+          <div>媒体键 播放/暂停 · 上一首 · 下一首（系统媒体键）</div>
+          <div>顶栏搜索框回车：全局搜索</div>
+          <div>底栏：循环菜单直接选模式 · 音质 · 睡眠定时</div>
+          <div>托盘：双击显示窗口 / 右键控制播放</div>
+        </div>
+      </section>
+
+      <section className="settings-group-card">
+        <div className="settings-group-card__header">
           <h3 className="settings-group-card__title">关于</h3>
         </div>
         <div className="settings-group-card__body settings-about">
-          <div>左耳 v0.1.0</div>
-          <div>基于 Tauri 2.x + React 构建</div>
-          <div>支持多音源搜索、歌词显示、歌单管理</div>
+          <div>AurisLeft v0.2.0-beta · 测试版</div>
+          <div>Electron + React 桌面音乐播放器</div>
+          <div>多音源搜索 · 歌词 · 歌单 · 本地 · 收藏 · 最近播放 · 下载</div>
+          <div className="settings-note">当前为测试分支，功能与稳定性仍在迭代中。</div>
         </div>
       </section>
     </div>
