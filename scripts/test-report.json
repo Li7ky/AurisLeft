@@ -1,0 +1,112 @@
+{
+  "at": "2026-07-11T15:19:40.157Z",
+  "passed": 21,
+  "total": 21,
+  "results": [
+    {
+      "name": "西瓜糖 QQ 已启用",
+      "pass": true,
+      "detail": "ff0acc…c1fd"
+    },
+    {
+      "name": "搜索「周杰伦」",
+      "pass": true,
+      "detail": "140 条, QQ=20, 18463ms"
+    },
+    {
+      "name": "搜索「晴天」",
+      "pass": true,
+      "detail": "140 条, QQ=20, 4031ms"
+    },
+    {
+      "name": "搜索「薛之谦 演员」",
+      "pass": true,
+      "detail": "140 条, QQ=20, 17750ms"
+    },
+    {
+      "name": "搜索「BLACKPINK」",
+      "pass": true,
+      "detail": "140 条, QQ=20, 4609ms"
+    },
+    {
+      "name": "搜索「林俊杰」",
+      "pass": true,
+      "detail": "140 条, QQ=20, 6751ms"
+    },
+    {
+      "name": "空搜「不存在的歌xyzabc123999」",
+      "pass": true,
+      "detail": "3964ms 仍有 140 条(接口宽匹配)"
+    },
+    {
+      "name": "搜索「a」",
+      "pass": true,
+      "detail": "140 条, QQ=20, 5898ms"
+    },
+    {
+      "name": "播放「晴天 - 周杰伦- / A-LNK」",
+      "pass": true,
+      "detail": "可播 30357ms"
+    },
+    {
+      "name": "播放「演员 - 薛之谦」",
+      "pass": true,
+      "detail": "可播 13328ms"
+    },
+    {
+      "name": "播放「孤勇者 - 陈奕迅」",
+      "pass": true,
+      "detail": "可播 22531ms"
+    },
+    {
+      "name": "播放「夜曲 - 周杰伦」",
+      "pass": true,
+      "detail": "可播 30691ms"
+    },
+    {
+      "name": "播放「like JENNIE (Explicit) - JENNIE」",
+      "pass": true,
+      "detail": "可播 10332ms"
+    },
+    {
+      "name": "收藏/取消收藏",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "歌单 创建/加歌/导出/删除",
+      "pass": true,
+      "detail": "2 首"
+    },
+    {
+      "name": "最近播放写入/读取",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "设置保存/读取",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "本地扫描",
+      "pass": true,
+      "detail": "C:\\Users\\Administrator\\Music → 0 首"
+    },
+    {
+      "name": "原生酷我取链",
+      "pass": true,
+      "detail": "https://nf-sycdn.kuwo.cn/c5c8c0c7e7650d474b81efebd8e2582a/6a525ef4/res"
+    },
+    {
+      "name": "连续切歌",
+      "pass": true,
+      "detail": "3/3 串行 + 连点最后一首可播"
+    },
+    {
+      "name": "备份 exportBackup 结构",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

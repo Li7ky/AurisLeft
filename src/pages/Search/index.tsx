@@ -56,7 +56,7 @@ export default function Search() {
             <SearchIcon size={28} />
           </div>
           <h2>发现音乐</h2>
-          <p>多平台聚合搜索，播放失败时自动换源</p>
+          <p>优先 QQ 曲库解析，支持付费曲；结果带 QQ 标记的更稳</p>
         </div>
       ) : (
         <div className="search-page__results">

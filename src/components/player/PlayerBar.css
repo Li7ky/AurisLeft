@@ -1,4 +1,5 @@
 .player-bar {
+  /* 与 Toast 底部定位共用，提示贴在播放栏上方 */
   --pb-h: 78px;
   height: var(--pb-h);
   width: 100%;

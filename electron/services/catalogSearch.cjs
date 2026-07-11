@@ -138,7 +138,9 @@ async function searchNetease(keyword, page = 1) {
       platformLabel: PLATFORM_LABEL.wy,
     };
   });
-  return { songs, total, page, perPage: 30, platform: 'wy' };
+  // 关键词里含歌手时，把更贴合原曲的结果提前（减少 remix / 翻唱抢第一）
+  const ranked = rankByKeyword(songs, keyword);
+  return { songs: ranked, total, page, perPage: 30, platform: 'wy' };
 }
 
 /** 酷我 */
@@ -193,7 +195,7 @@ async function searchKuwo(keyword, page = 1) {
       };
     })
     .filter((s) => s.songId !== 'kw:');
-  return { songs, total, page, perPage: 30, platform: 'kw' };
+  return { songs: rankByKeyword(songs, keyword), total, page, perPage: 30, platform: 'kw' };
 }
 
 /** 酷狗 */
@@ -237,7 +239,7 @@ async function searchKugou(keyword, page = 1) {
       };
     })
     .filter((s) => s.hash);
-  return { songs, total, page, perPage: 30, platform: 'kg' };
+  return { songs: rankByKeyword(songs, keyword), total, page, perPage: 30, platform: 'kg' };
 }
 
 /** QQ 音乐 */
@@ -288,7 +290,36 @@ async function searchQQ(keyword, page = 1) {
       };
     })
     .filter((s) => s.songId !== 'tx:');
-  return { songs, total, page, perPage: 30, platform: 'tx' };
+  return { songs: rankByKeyword(songs, keyword), total, page, perPage: 30, platform: 'tx' };
+}
+
+/**
+ * 按关键词重排：歌名/歌手更贴合、非 remix 优先
+ */
+function rankByKeyword(songs, keyword) {
+  if (!Array.isArray(songs) || !songs.length) return songs || [];
+  const raw = String(keyword || '').trim().toLowerCase();
+  if (!raw) return songs;
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  const score = (s) => {
+    const name = String(s.name || '').toLowerCase();
+    const artist = String(s.artist || '').toLowerCase();
+    let sc = 0;
+    for (const t of tokens) {
+      if (name === t) sc += 40;
+      else if (name.includes(t)) sc += 20;
+      if (artist.includes(t)) sc += 25;
+    }
+    // 惩罚 remix / 翻唱 / DJ / live 片段
+    if (/remix|翻唱|dj|cover|伴奏|纯音乐|片段|live|改编|montagem/i.test(name + artist)) {
+      sc -= 30;
+    }
+    if (s.playableHint === 'maybe_vip') sc -= 2;
+    if (s.coverUrl) sc += 1;
+    if (s.duration > 60) sc += 2;
+    return sc;
+  };
+  return [...songs].sort((a, b) => score(b) - score(a));
 }
 
 const SEARCHERS = {
@@ -320,34 +351,60 @@ async function searchAllPlatforms(keyword, page = 1, timeoutMs = 8000, platforms
 
 /**
  * 按歌名+歌手在其它平台找候选（用于换源）
+ * 默认优先顺序：酷我 → 酷狗 → QQ → 网易（付费曲酷我命中率最高）
  */
 async function findAlternatives(name, artist, excludePlatform, limit = 5) {
   const keyword = [name, artist].filter(Boolean).join(' ').trim() || name;
   if (!keyword) return [];
-  const platforms = ['kw', 'wy', 'kg', 'tx'].filter((p) => p !== excludePlatform);
-  const batches = await searchAllPlatforms(keyword, 1, 6000, platforms);
+  // 始终把酷我放最前；exclude 掉原平台
+  const platforms = ['kw', 'kg', 'tx', 'wy'].filter((p) => p !== excludePlatform);
+  const batches = await searchAllPlatforms(keyword, 1, 7000, platforms);
   const out = [];
-  const nameL = String(name || '').toLowerCase();
+  const seen = new Set();
+  const nameL = String(name || '')
+    .toLowerCase()
+    .replace(/\s+/g, '');
   const artistL = String(artist || '').toLowerCase();
+  const artistCore = artistL.split(/[\/、,&|]/)[0].trim();
 
+  const scoreSong = (song) => {
+    const sn = String(song.name || '')
+      .toLowerCase()
+      .replace(/\s+/g, '');
+    const sa = String(song.artist || '').toLowerCase();
+    let score = 0;
+    if (sn === nameL) score += 50;
+    else if (sn.includes(nameL) || nameL.includes(sn)) score += 30;
+    else score -= 20;
+    if (artistCore && (sa.includes(artistCore) || artistCore.includes(sa.split(/[\/、,&]/)[0]))) {
+      score += 20;
+    }
+    // 平台偏好
+    const pr = { kw: 8, kg: 6, tx: 4, wy: 0 };
+    score += pr[song.platform] || 0;
+    if (song.playableHint === 'maybe_vip') score -= 5;
+    return score;
+  };
+
+  const pool = [];
   for (const batch of batches) {
     for (const song of batch.result.songs || []) {
-      const sn = String(song.name || '').toLowerCase();
-      const sa = String(song.artist || '').toLowerCase();
-      // 歌名包含或高度相似；歌手尽量匹配
-      const nameHit = sn.includes(nameL) || nameL.includes(sn) || sn === nameL;
-      const artistHit =
-        !artistL ||
-        sa.includes(artistL.split(/[\/、,&]/)[0].trim()) ||
-        artistL.includes(sa.split(/[\/、,&]/)[0].trim());
-      if (nameHit && artistHit) {
-        out.push(song);
-      }
-      if (out.length >= limit) return out;
+      const key = song.songId || `${song.source}:${song.name}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pool.push(song);
     }
   }
-  // 若精确匹配不够，放宽：同平台批次前几首
-  if (out.length < 2) {
+
+  pool.sort((a, b) => scoreSong(b) - scoreSong(a));
+  for (const song of pool) {
+    if (scoreSong(song) < 10 && out.length >= 2) continue;
+    out.push(song);
+    if (out.length >= limit) break;
+  }
+
+  // 仍不足：各平台前 2 条硬塞
+  if (out.length < Math.min(3, limit)) {
     for (const batch of batches) {
       for (const song of (batch.result.songs || []).slice(0, 2)) {
         if (!out.find((x) => x.songId === song.songId)) out.push(song);

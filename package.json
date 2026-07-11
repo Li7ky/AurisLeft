@@ -1,8 +1,8 @@
 {
   "name": "aurisleft",
   "private": true,
-  "version": "0.2.0-beta",
-  "description": "AurisLeft desktop music player (Electron) — 测试版",
+  "version": "1.0.0",
+  "description": "AurisLeft desktop music player (Electron)",
   "author": "AurisLeft Contributors",
   "main": "electron/main.cjs",
   "type": "module",
@@ -16,7 +16,8 @@
     "build": "npm run web:build && electron-builder",
     "typecheck": "tsc --noEmit",
     "pack": "electron-builder --dir",
-    "dist": "npm run web:build && electron-builder --win"
+    "dist": "npm run web:build && electron-builder --win",
+    "release": "npm run dist"
   },
   "dependencies": {
     "lucide-react": "^1.14.0",
@@ -43,7 +44,7 @@
   },
   "build": {
     "appId": "com.aurisleft.desktop",
-    "productName": "AurisLeft 测试版",
+    "productName": "AurisLeft",
     "directories": {
       "output": "release"
     },

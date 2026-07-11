@@ -1,8 +1,12 @@
 const fs = require('fs');
 const path = require('path');
-const { getDbPath } = require('./appPaths.cjs');
+const { getDbPath, getSourcesPath, getLxPrefsPath } = require('./appPaths.cjs');
+
+/** Bump when on-disk shape changes incompatibly */
+const SCHEMA_VERSION = 1;
 
 const defaultDb = () => ({
+  schemaVersion: SCHEMA_VERSION,
   playlists: [],
   playlistSongs: [],
   favorites: [],
@@ -11,6 +15,25 @@ const defaultDb = () => ({
   nextPlaylistId: 1,
   nextPlaylistSongId: 1,
 });
+
+function migrate(data) {
+  const next = { ...defaultDb(), ...data };
+  const from = Number(data.schemaVersion) || 0;
+
+  // v0 → v1: introduce schemaVersion, ensure arrays
+  if (from < 1) {
+    if (!Array.isArray(next.playlists)) next.playlists = [];
+    if (!Array.isArray(next.playlistSongs)) next.playlistSongs = [];
+    if (!Array.isArray(next.favorites)) next.favorites = [];
+    if (!Array.isArray(next.recentPlays)) next.recentPlays = [];
+    if (!next.settings || typeof next.settings !== 'object') next.settings = {};
+    if (!Number.isFinite(next.nextPlaylistId)) next.nextPlaylistId = 1;
+    if (!Number.isFinite(next.nextPlaylistSongId)) next.nextPlaylistSongId = 1;
+  }
+
+  next.schemaVersion = SCHEMA_VERSION;
+  return next;
+}
 
 class Database {
   constructor() {
@@ -23,11 +46,25 @@ class Database {
     try {
       if (fs.existsSync(this.path)) {
         const raw = JSON.parse(fs.readFileSync(this.path, 'utf8'));
-        this.data = { ...defaultDb(), ...raw };
+        const before = Number(raw.schemaVersion) || 0;
+        this.data = migrate(raw);
+        if (before !== SCHEMA_VERSION) {
+          this.save();
+          console.log(`[db] migrated schema ${before} → ${SCHEMA_VERSION}`);
+        }
       } else {
         this.save();
       }
-    } catch {
+    } catch (e) {
+      console.warn('[db] load failed, resetting', e.message || e);
+      // Keep a corrupt copy for recovery
+      try {
+        if (fs.existsSync(this.path)) {
+          fs.copyFileSync(this.path, `${this.path}.corrupt.${Date.now()}`);
+        }
+      } catch {
+        /* ignore */
+      }
       this.data = defaultDb();
       this.save();
     }
@@ -38,6 +75,7 @@ class Database {
     const dir = path.dirname(this.path);
     fs.mkdirSync(dir, { recursive: true });
     const tmp = `${this.path}.${process.pid}.tmp`;
+    this.data.schemaVersion = SCHEMA_VERSION;
     const payload = JSON.stringify(this.data, null, 2);
     fs.writeFileSync(tmp, payload, 'utf8');
     try {
@@ -51,6 +89,86 @@ class Database {
         /* ignore */
       }
     }
+  }
+
+  /** Full portable backup object (db + optional source configs) */
+  exportBackup() {
+    let sourcesConfig = null;
+    let lxPrefs = null;
+    try {
+      const sp = getSourcesPath();
+      if (fs.existsSync(sp)) sourcesConfig = JSON.parse(fs.readFileSync(sp, 'utf8'));
+    } catch {
+      /* ignore */
+    }
+    try {
+      const lp = getLxPrefsPath();
+      if (fs.existsSync(lp)) lxPrefs = JSON.parse(fs.readFileSync(lp, 'utf8'));
+    } catch {
+      /* ignore */
+    }
+    return {
+      app: 'aurisleft',
+      backupVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      data: JSON.parse(JSON.stringify(this.data)),
+      sourcesConfig,
+      lxPrefs,
+    };
+  }
+
+  /**
+   * Restore from exportBackup() payload.
+   * @returns {{ ok: true, restored: string[] }}
+   */
+  importBackup(payload) {
+    if (!payload || typeof payload !== 'object') {
+      throw new Error('备份文件无效');
+    }
+    if (payload.app && payload.app !== 'aurisleft') {
+      throw new Error('不是 AurisLeft 备份文件');
+    }
+    const restored = [];
+    const data = payload.data || payload;
+    if (!data || typeof data !== 'object') {
+      throw new Error('备份缺少数据段');
+    }
+
+    this.data = migrate({
+      playlists: data.playlists || [],
+      playlistSongs: data.playlistSongs || [],
+      favorites: data.favorites || [],
+      recentPlays: data.recentPlays || [],
+      settings: data.settings || {},
+      nextPlaylistId: data.nextPlaylistId || 1,
+      nextPlaylistSongId: data.nextPlaylistSongId || 1,
+      schemaVersion: data.schemaVersion,
+    });
+    this.save();
+    restored.push('歌单/收藏/最近/设置');
+
+    if (payload.sourcesConfig) {
+      try {
+        fs.writeFileSync(
+          getSourcesPath(),
+          JSON.stringify(payload.sourcesConfig, null, 2),
+          'utf8'
+        );
+        restored.push('用户音源配置');
+      } catch (e) {
+        console.warn('[db] restore sourcesConfig failed', e.message || e);
+      }
+    }
+    if (payload.lxPrefs) {
+      try {
+        fs.writeFileSync(getLxPrefsPath(), JSON.stringify(payload.lxPrefs, null, 2), 'utf8');
+        restored.push('洛雪音源开关');
+      } catch (e) {
+        console.warn('[db] restore lxPrefs failed', e.message || e);
+      }
+    }
+    return { ok: true, restored };
   }
 
   createPlaylist(name) {
@@ -256,4 +374,4 @@ class Database {
   }
 }
 
-module.exports = { Database };
+module.exports = { Database, SCHEMA_VERSION };

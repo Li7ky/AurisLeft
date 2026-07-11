@@ -165,7 +165,10 @@ export default function LocalMusic() {
 
       {!scanning && localSongs.length === 0 && !scanDirs.length && (
         <div className="local-music__empty">
-          <p>还没有添加音乐文件夹</p>
+          <p>还没有本地音乐</p>
+          <p className="local-music__empty-hint">
+            添加电脑上的歌曲文件夹（如「下载」或自定义目录），再扫描即可播放。
+          </p>
           <button className="local-music__btn local-music__btn--primary" onClick={() => void openAddDirDialog()}>
             添加文件夹开始
           </button>
@@ -174,10 +177,21 @@ export default function LocalMusic() {
 
       {!scanning && localSongs.length === 0 && scanDirs.length > 0 && (
         <div className="local-music__empty">
-          <p>目录已添加，点击「扫描音乐」加载文件</p>
-          <button className="local-music__btn local-music__btn--scan" onClick={scan}>
-            扫描音乐
-          </button>
+          <p>已添加 {scanDirs.length} 个目录，但还没有扫到歌曲</p>
+          <p className="local-music__empty-hint">
+            支持常见音频格式。确认文件夹里有 mp3 / flac / m4a 等文件后点扫描。
+          </p>
+          <div className="local-music__empty-actions">
+            <button className="local-music__btn local-music__btn--scan" onClick={scan}>
+              扫描音乐
+            </button>
+            <button
+              className="local-music__btn local-music__btn--primary"
+              onClick={() => void openAddDirDialog()}
+            >
+              再加一个文件夹
+            </button>
+          </div>
         </div>
       )}
 

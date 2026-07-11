@@ -457,13 +457,25 @@ class LxScriptHost {
     // 克隆，避免并行取链时脚本互相污染 musicInfo
     const safeInfo = JSON.parse(JSON.stringify(musicInfo || {}));
 
-    // 只请求该源声明支持的音质（野花仅 128k，乱要 320k 会直接失败）
-    const qualitys = this.sources[platform]?.qualitys || ['128k', '320k'];
+    // 只请求该源声明支持的音质；限制在常见档位，避免 ikun 的 atmos/master 空转
+    const declared = this.sources[platform]?.qualitys || ['128k', '320k', 'flac'];
     const preferred = String(quality || '320k');
+    const COMMON_ORDER = ['128k', '320k', 'flac', 'flac24bit', 'hires'];
     const tryList = [];
-    if (qualitys.includes(preferred)) tryList.push(preferred);
-    for (const q of qualitys) {
-      if (!tryList.includes(q)) tryList.push(q);
+    const pushQ = (q) => {
+      if (q && !tryList.includes(q) && (declared.includes(q) || q === preferred)) {
+        tryList.push(q);
+      }
+    };
+    pushQ(preferred);
+    // 降级：优先常用档
+    for (const q of COMMON_ORDER) {
+      if (declared.includes(q)) pushQ(q);
+    }
+    // 声明里其余档位最多再补 1 个（防止无限试 master/atmos）
+    for (const q of declared) {
+      if (tryList.length >= 4) break;
+      if (COMMON_ORDER.includes(q)) pushQ(q);
     }
     if (!tryList.length) tryList.push('128k');
 
@@ -482,7 +494,7 @@ class LxScriptHost {
             })
           ),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('musicUrl timeout')), 10000)
+            setTimeout(() => reject(new Error('musicUrl timeout')), 14000)
           ),
         ]);
 
@@ -586,63 +598,61 @@ class LxSourceEngine {
       );
     }
 
-    // 实测优先序：Huibq 较稳 → 野花 → 其它
+    // 优先序：Huibq → 野花 → 野草 → 其它 → 独家/六音/ikun 最后
+    // 六音常抛「该渠道无法获取播放链接/数字专辑」，不要排前面抢错误文案
     candidates = candidates.slice().sort((a, b) => {
       const score = (h) => {
         const n = (h.header.name || '').toLowerCase();
         if (n.includes('huibq')) return 0;
         if (n.includes('野花') || n.includes('flower')) return 1;
-        if (n.includes('ikun')) return 2;
-        if (n.includes('六音') || n.includes('sixyin')) return 3;
+        if (n.includes('野草') || n.includes('grass')) return 2;
+        if (n.includes('独家')) return 6;
+        if (n.includes('六音') || n.includes('sixyin')) return 7;
+        if (n.includes('ikun')) return 8;
         return 5;
       };
       return score(a) - score(b);
     });
 
-    // 并行竞速：谁先返回合法 URL 用谁（上限同时 3 个，避免打爆接口）
+    // 并行竞速（最多 3 路稳一点）：谁先返回合法 URL 用谁
     const errors = [];
     const queue = [...candidates];
+    let winner = null;
+    let aborted = false;
+
+    const isSoftFail = (msg) =>
+      /数字专辑|无法获取播放链接|该渠道|GetMedia|无音源|暂时无法|版权|会员|试听|empty url|unknow error|unknown error|block ip|param error|script error/i.test(
+        String(msg || '')
+      );
+
     const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
-      while (queue.length) {
+      while (queue.length && !aborted) {
         const host = queue.shift();
-        if (!host) return null;
+        if (!host || aborted) return null;
         try {
           const url = await host.getMusicUrl(platform, musicInfo, quality);
-          if (url) {
+          if (url && !aborted) {
             console.log(`[lx] hit ${host.header.name} ${platform} -> ${url.slice(0, 80)}`);
+            winner = url;
+            aborted = true;
             return url;
           }
         } catch (e) {
+          if (aborted) return null;
           const msg = e instanceof Error ? e.message : String(e);
-          errors.push(`${host.header.name}: ${msg}`);
+          // 数字专辑等文案只记 soft，不拼进最终用户提示
+          if (!isSoftFail(msg)) errors.push(`${host.header.name}: ${msg}`);
+          else errors.push(`${host.header.name}: soft-fail`);
           console.warn(`[lx] ${host.header.name} ${platform} fail:`, msg);
         }
       }
       return null;
     });
 
-    // 任意一个 worker 先拿到 URL 就返回；其余继续在后台跑完但我们可直接用结果
-    const firstUrl = await new Promise((resolve) => {
-      let settled = 0;
-      let done = false;
-      for (const w of workers) {
-        w.then((url) => {
-          if (url && !done) {
-            done = true;
-            resolve(url);
-          }
-          settled += 1;
-          if (settled === workers.length && !done) resolve(null);
-        }).catch(() => {
-          settled += 1;
-          if (settled === workers.length && !done) resolve(null);
-        });
-      }
-    });
-
-    if (firstUrl) return firstUrl;
-    if (errors.length) throw new Error(errors.join(' | '));
-    throw new Error(`没有可用的 LX 音源支持平台 ${platform}`);
+    await Promise.all(workers);
+    if (winner) return winner;
+    // 不把「数字专辑」等脚本原文抛给上层
+    throw new Error(`平台 ${platform} 暂无可用直链`);
   }
 }
 

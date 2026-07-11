@@ -5,7 +5,11 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import AppLayout from './components/layout/AppLayout';
 import { subscribePlayerEvents } from './store/playerStore';
 import { useSettingsStore } from './store/settingsStore';
-import { loadSourcesFromFile } from './utils/desktop';
+import {
+  loadSettings as desktopLoadSettings,
+  markOnboardingSeen,
+  getNkiQqStatus,
+} from './utils/desktop';
 import { useToast } from './components/common/Toast/useToast';
 import Home from './pages/Home';
 import LocalMusic from './pages/LocalMusic';
@@ -36,16 +40,27 @@ function App() {
   useEffect(() => {
     loadSettings();
     void loadFavorites();
-    loadSourcesFromFile()
-      .then((sources) => {
-        if (!sources?.length) {
-          addToast('未检测到音源，已启用内置音源，可直接搜索试听', 'info');
+
+    void getNkiQqStatus()
+      .then((s) => {
+        if (!s.hasKey || !s.enabled) {
+          addToast('请到设置开启西瓜糖 QQ 解析（需密钥）', 'info');
         }
       })
-      .catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        addToast(`加载音源失败：${message}`, 'error');
-      });
+      .catch(() => undefined);
+
+    // First-run welcome (once)
+    void desktopLoadSettings()
+      .then(async (settings) => {
+        if (settings?.onboarding?.seen) return;
+        addToast('欢迎使用 AurisLeft：搜索点歌即可，播放走西瓜糖 QQ 解析。', 'info');
+        try {
+          await markOnboardingSeen();
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => undefined);
   }, [loadSettings, loadFavorites, addToast]);
 
   return (

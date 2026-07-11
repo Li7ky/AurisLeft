@@ -8,13 +8,113 @@ import {
   setVolume as desktopSetVolume,
   playLocalFile as desktopPlayLocalFile,
   fetchLyric as desktopFetchLyric,
-  getLxStatus,
+  warmSongs as desktopWarmSongs,
 } from '../utils/desktop';
 import { isElectronRuntime, listen as desktopListen } from '../utils/ipc';
 import type { LyricLine, Song } from '../types';
 import { audioEngine } from '../core/audioEngine';
 import { PlaybackState, Quality, RepeatMode } from '../types';
-import { isLocalSong, songKey } from '../utils/song';
+import { isLocalSong, localSongPath, songKey } from '../utils/song';
+
+const QUALITY_FALLBACK: Quality[] = [
+  Quality.HiRes,
+  Quality.FLAC,
+  Quality.K320,
+  Quality.K128,
+];
+
+function qualityChain(start: Quality): Quality[] {
+  const idx = QUALITY_FALLBACK.indexOf(start);
+  if (idx < 0) return [start, Quality.K320, Quality.K128];
+  return QUALITY_FALLBACK.slice(idx);
+}
+
+function friendlyPlaybackMessage(message: string): string {
+  const m = String(message || '')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // 切歌取消：不提示错误
+  if (/播放已切换|PLAY_SWITCHED|aborted/i.test(m)) {
+    return '';
+  }
+  // 洛雪脚本吓人原文（六音等）→ 正常说明
+  if (/数字专辑|无法获取播放链接|该渠道|GetMedia|无音源/i.test(m)) {
+    return '当前渠道受限，已尝试其它音源。若仍失败请换一首';
+  }
+  if (/音源仍在初始化|请稍候|initializ/i.test(m)) {
+    return '音源仍在初始化，请稍候几秒再播放';
+  }
+  if (/没有已开启|未开启音源|到设置页打开/i.test(m)) {
+    return '取链失败。请确认设置里已开启「西瓜糖 QQ 解析」或至少一个洛雪音源';
+  }
+  if (/timeout|超时/i.test(m)) return '取链超时，请检查网络后重试';
+  if (/vip|会员|付费|版权|受限|换源仍失败|暂时无法播放/i.test(m)) {
+    return '该曲可能受版权或会员限制，已尝试换源仍失败';
+  }
+  if (/网络|ECONN|fetch failed|network/i.test(m)) return '网络异常，播放失败';
+  if (/无法解析播放地址|取链失败|暂无可用/i.test(m)) {
+    return '暂时无法获取播放地址，请换一首或稍后再试';
+  }
+  if (/解码|格式可能不受支持/i.test(m)) return '音频解码失败，链接可能已失效';
+  if (/链接无效|付费\/下架|SRC_NOT_SUPPORTED/i.test(m)) {
+    return '无法播放该音源（链接无效或歌曲受限）';
+  }
+  if (m.includes('|') || m.includes('；')) {
+    return '暂时无法播放，请换一首或稍后再试';
+  }
+  return m.length > 100 ? `${m.slice(0, 100)}…` : m || '播放失败';
+}
+
+function updateMediaSession(song: Song | null, playing: boolean) {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+  try {
+    if (!song) {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = 'none';
+      return;
+    }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.name || '未知歌曲',
+      artist: song.artist || '未知艺人',
+      album: song.album || '',
+      artwork: song.coverUrl
+        ? [
+            { src: song.coverUrl, sizes: '300x300', type: 'image/jpeg' },
+            { src: song.coverUrl, sizes: '96x96', type: 'image/jpeg' },
+          ]
+        : [],
+    });
+    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+  } catch {
+    /* ignore */
+  }
+}
+
+function bindMediaSessionHandlers() {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+  try {
+    navigator.mediaSession.setActionHandler('play', () => {
+      void usePlayerStore.getState().resume();
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      void usePlayerStore.getState().pause();
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      void usePlayerStore.getState().prev();
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      void usePlayerStore.getState().next();
+    });
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (details.seekTime != null) {
+        void usePlayerStore.getState().seek(details.seekTime);
+      }
+    });
+  } catch {
+    /* some handlers unsupported */
+  }
+}
 
 interface PlayerState {
   currentSong: Song | null;
@@ -95,6 +195,9 @@ let lastErrorHandleKey = '';
 let lastErrorHandleAt = 0;
 let errorHandleGeneration = 0;
 let fadingOut = false;
+/** 连点切歌：丢弃过期 play 结果 */
+let playRequestToken = 0;
+let lastResolveToastAt = 0;
 
 async function persistPlayerPrefs(partial: {
   volume?: number;
@@ -132,17 +235,17 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     audioEngine.setVolume(volume);
   },
 
-  play: async (song: Song, quality?: Quality, toast?: ToastFn, autoSkipOnError = true) => {
+  play: async (songInput: Song, quality?: Quality, toast?: ToastFn, autoSkipOnError = true) => {
+    const token = ++playRequestToken;
+    let song = songInput;
     const q = quality ?? get().quality;
     const { queue, currentIndex } = get();
     let idx = queue.findIndex((s) => songKey(s) === songKey(song));
 
     if (idx === -1 && queue.length === 0) {
-      // Empty queue → single-song queue
       set({ queue: [song], currentIndex: 0 });
       idx = 0;
     } else if (idx === -1) {
-      // Not in queue: insert after current (preserve existing queue)
       const insertAt =
         currentIndex >= 0 && currentIndex < queue.length ? currentIndex + 1 : queue.length;
       const nextQueue = [...queue];
@@ -151,6 +254,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       idx = insertAt;
     } else {
       set({ currentIndex: idx });
+    }
+
+    // 立刻停掉上一首，别等新链解析完才哑火
+    try {
+      audioEngine.stopForSwitch();
+    } catch {
+      /* ignore */
     }
 
     set({
@@ -163,49 +273,133 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     });
 
     void get().loadLyrics(song);
+    updateMediaSession(song, false);
 
     try {
       let url: string | undefined;
+      let usedQuality = q;
 
       if (isLocalSong(song)) {
-        const result = await desktopPlayLocalFile(song.songId);
+        const filePath = localSongPath(song);
+        const result = await desktopPlayLocalFile(filePath);
+        if (token !== playRequestToken) return;
         url = result?.url;
       } else if (isElectronRuntime()) {
-        try {
-          const lx = await getLxStatus();
-          if (lx.initializing) {
-            toast?.('正在初始化音源，请稍候…', 'info');
+        // 解析超过 700ms 再提示，缓存秒开不弹「正在解析」
+        let resolveToastTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+          resolveToastTimer = null;
+          if (token !== playRequestToken) return;
+          const now = Date.now();
+          if (now - lastResolveToastAt > 1200) {
+            lastResolveToastAt = now;
+            toast?.('正在解析播放地址…', 'info');
           }
-        } catch {
-          /* ignore status probe */
+        }, 700);
+
+        // 有 mid 时只打一枪 QQ，加快切歌；失败再降质
+        const chain = qualityChain(q).slice(0, song.strMediaMid || song.platform === 'tx' ? 1 : 2);
+        let lastErr: Error | null = null;
+        let playMeta: { duration?: number; coverUrl?: string | null; album?: string } = {};
+        try {
+          for (const tryQ of chain) {
+            if (token !== playRequestToken) return;
+            try {
+              const result = await desktopPlaySong(song, tryQ);
+              if (token !== playRequestToken) return;
+              // 主进程软取消：切歌时返回 cancelled，不当错误
+              if (
+                result &&
+                typeof result === 'object' &&
+                ((result as { cancelled?: boolean }).cancelled ||
+                  (result as { code?: string }).code === 'PLAY_SWITCHED')
+              ) {
+                return;
+              }
+              if (result && typeof result === 'object' && 'url' in result && result.url) {
+                url = (result as { url: string }).url;
+                usedQuality = tryQ;
+                const r = result as {
+                  duration?: number;
+                  coverUrl?: string | null;
+                  album?: string;
+                };
+                playMeta = {
+                  duration: r.duration,
+                  coverUrl: r.coverUrl,
+                  album: r.album,
+                };
+                break;
+              }
+              lastErr = new Error('无法解析播放地址');
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              if (/播放已切换|PLAY_SWITCHED/i.test(msg)) return;
+              lastErr = err instanceof Error ? err : new Error(msg);
+            }
+          }
+        } finally {
+          if (resolveToastTimer) clearTimeout(resolveToastTimer);
         }
-        if (song.playableHint === 'maybe_vip') {
-          toast?.('该曲在此平台可能受限，将自动尝试其它平台换源…', 'info');
-        }
-        const result = await desktopPlaySong(song, q);
-        if (result && typeof result === 'object' && 'url' in result) {
-          url = (result as { url: string }).url;
+        if (!url && lastErr) throw lastErr;
+
+        // 用解析结果补全列表里缺失的封面/时长
+        if (playMeta.coverUrl || playMeta.duration || playMeta.album) {
+          const enriched: Song = {
+            ...song,
+            coverUrl: playMeta.coverUrl || song.coverUrl,
+            duration: playMeta.duration || song.duration,
+            album: playMeta.album || song.album,
+          };
+          set({
+            currentSong: enriched,
+            duration: enriched.duration || get().duration,
+          });
+          song = enriched;
         }
       } else {
-        // 纯浏览器预览（无 Electron 后端）
         url = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
       }
+
+      if (token !== playRequestToken) return;
 
       if (!url) {
         throw new Error('无法解析播放地址');
       }
 
+      if (usedQuality !== q) {
+        set({ quality: usedQuality });
+      }
+
       await audioEngine.play(url);
+      if (token !== playRequestToken) return;
+
       audioEngine.setVolume(get().volume);
       failedAutoSkipSongKeys.clear();
       set({ playbackState: PlaybackState.Playing });
+      updateMediaSession(get().currentSong || song, true);
+
+      // 预热队列里接下来 2 首 → 切歌也尽量秒开
+      try {
+        const { queue, currentIndex } = get();
+        const upcoming = queue.slice(currentIndex + 1, currentIndex + 3);
+        if (upcoming.length && isElectronRuntime()) {
+          void desktopWarmSongs(upcoming, usedQuality);
+        }
+      } catch {
+        /* ignore */
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      if (token !== playRequestToken) return;
+      const raw = err instanceof Error ? err.message : String(err);
+      if (/播放已切换|PLAY_SWITCHED|aborted/i.test(raw)) return;
+      const message = friendlyPlaybackMessage(raw);
+      if (!message) return;
       if (autoSkipOnError) {
         await get().handlePlaybackError(message, toast);
       } else {
         set({ playbackState: PlaybackState.Error, error: message });
         toast?.(`播放失败：${message}`, 'error');
+        updateMediaSession(song, false);
       }
     }
   },
@@ -225,6 +419,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       audioEngine.pause();
       void desktopPausePlayback().catch(() => undefined);
       set({ playbackState: PlaybackState.Paused });
+      updateMediaSession(get().currentSong, false);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ error: message });
@@ -242,6 +437,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       await audioEngine.resume();
       void desktopResumePlayback().catch(() => undefined);
       set({ playbackState: PlaybackState.Playing });
+      updateMediaSession(currentSong, true);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ error: message });
@@ -262,6 +458,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         error: null,
         lyricLines: [],
       });
+      updateMediaSession(null, false);
     } catch {
       set({ playbackState: PlaybackState.Error });
     }
@@ -499,17 +696,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   handlePlaybackError: async (message: string, toast?: ToastFn) => {
     // Ignore noisy race errors from rapid track switching
     if (
+      !message ||
       /interrupted by a new load request/i.test(message) ||
       /The play\(\) request was interrupted/i.test(message) ||
-      /播放被中断/.test(message)
+      /播放被中断/.test(message) ||
+      /播放已切换|PLAY_SWITCHED|aborted/i.test(message)
     ) {
       return;
     }
 
-    const friendly = message
-      .replace(/https?:\/\/\S+/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const friendly = friendlyPlaybackMessage(message);
 
     const { currentSong } = get();
     const dedupeKey = `${currentSong ? songKey(currentSong) : 'none'}::${friendly}`;
@@ -523,13 +719,38 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     const gen = ++errorHandleGeneration;
 
     set({ playbackState: PlaybackState.Error, error: friendly });
+    updateMediaSession(currentSong, false);
+
+    // Config / readiness: don't auto-skip the whole queue
+    const isConfigError = /没有已开启|初始化|设置页/.test(friendly);
 
     if (now - lastErrorToastAt > 1500) {
       lastErrorToastAt = now;
       toast?.(`播放失败：${friendly}`, 'error');
     }
 
-    const { queue, currentIndex } = get();
+    if (isConfigError) return;
+
+    const { queue, currentIndex, quality } = get();
+
+    // Same-song quality step-down once more before skip (stream decode failures)
+    if (
+      currentSong &&
+      !failedAutoSkipSongKeys.has(songKey(currentSong)) &&
+      /解码|链接无效|网络错误|无法播放|加载失败/.test(friendly)
+    ) {
+      const chain = qualityChain(quality);
+      if (chain.length > 1) {
+        const lower = chain[1];
+        failedAutoSkipSongKeys.add(songKey(currentSong));
+        toast?.(`尝试较低音质（${lower}）…`, 'info');
+        await new Promise((r) => setTimeout(r, 200));
+        if (gen !== errorHandleGeneration) return;
+        await get().play(currentSong, lower, toast, true);
+        return;
+      }
+    }
+
     // Don't auto-skip through an entire VIP list — only try a few times
     if (
       queue.length > 1 &&
@@ -600,6 +821,7 @@ export function subscribePlayerEvents(): Promise<() => void> {
     return Promise.resolve(() => {});
   }
   subscribing = true;
+  bindMediaSessionHandlers();
 
   const unlistens: UnlistenFn[] = [];
 

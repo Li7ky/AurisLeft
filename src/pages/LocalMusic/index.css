@@ -208,6 +208,22 @@
   font-size: 13px;
 }
 
+.local-music__empty-hint {
+  font-size: 12px !important;
+  color: var(--text-subdued);
+  max-width: 360px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.local-music__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
 .local-music__dialog-overlay {
   position: fixed;
   inset: 0;

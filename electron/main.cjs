@@ -15,13 +15,14 @@ const fs = require('fs');
 const { pathToFileURL } = require('url');
 const { createAppState, registerHandlers } = require('./services/handlers.cjs');
 const { pickMediaHeaders } = require('./services/mediaHeaders.cjs');
+const logger = require('./services/logger.cjs');
 
 const isDev = !app.isPackaged;
 let mainWindow = null;
 let tray = null;
 /** When false, close button hides to tray instead of quitting */
 let isQuitting = false;
-const state = createAppState();
+let state = null;
 
 // 防止重复启动出现两个窗口
 const gotLock = app.requestSingleInstanceLock();
@@ -66,7 +67,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'AurisLeft 测试版',
+    title: 'AurisLeft',
     backgroundColor: '#0c0e12',
     show: false,
     frame: false,
@@ -168,7 +169,7 @@ function setupTray() {
       image = nativeImage.createFromBuffer(png);
     }
     tray = new Tray(image);
-    tray.setToolTip('AurisLeft 测试版');
+    tray.setToolTip('AurisLeft');
     tray.setContextMenu(
       Menu.buildFromTemplate([
         {
@@ -237,6 +238,17 @@ if (gotLock) {
   });
 
   app.whenReady().then(() => {
+    logger.install();
+    state = createAppState();
+    console.log(`[boot] AurisLeft v${app.getVersion()} dev=${isDev}`);
+    // 预热西瓜糖连接，减少第一次解析握手时间
+    try {
+      const nkiQq = require('./services/nkiQq.cjs');
+      nkiQq.preconnect();
+    } catch {
+      /* ignore */
+    }
+
     // aurislocal://media/<base64url filepath>
     protocol.handle('aurislocal', async (request) => {
       try {
@@ -273,34 +285,59 @@ if (gotLock) {
           console.warn('[aurisstream] bad target from', request.url, '->', target.slice(0, 80));
           return new Response('Bad target', { status: 400 });
         }
-        const headers = pickMediaHeaders(target);
-        // 透传 Range，支持进度条/seek
-        const range = request.headers.get('Range') || request.headers.get('range');
-        if (range) headers.Range = range;
 
-        const res = await fetch(target, {
-          headers,
-          redirect: 'follow',
-        });
-        if (!res.ok && res.status !== 206) {
-          console.warn('[aurisstream] upstream', res.status, target.slice(0, 100));
-          return new Response(`Upstream ${res.status}`, { status: res.status });
+        const range = request.headers.get('Range') || request.headers.get('range');
+        let lastStatus = 0;
+        let lastErr = null;
+
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const headers = pickMediaHeaders(target);
+            if (range) headers.Range = range;
+
+            const res = await fetch(target, {
+              headers,
+              redirect: 'follow',
+            });
+            lastStatus = res.status;
+            if (!res.ok && res.status !== 206) {
+              console.warn(
+                `[aurisstream] upstream ${res.status} attempt=${attempt}`,
+                target.slice(0, 100)
+              );
+              if (attempt < 2 && (res.status >= 500 || res.status === 403 || res.status === 429)) {
+                await new Promise((r) => setTimeout(r, 350));
+                continue;
+              }
+              return new Response(`Upstream ${res.status}`, { status: res.status });
+            }
+
+            const outHeaders = new Headers();
+            const ct = res.headers.get('content-type') || 'audio/mpeg';
+            outHeaders.set('Content-Type', ct);
+            const cl = res.headers.get('content-length');
+            if (cl) outHeaders.set('Content-Length', cl);
+            const cr = res.headers.get('content-range');
+            if (cr) outHeaders.set('Content-Range', cr);
+            outHeaders.set('Accept-Ranges', res.headers.get('accept-ranges') || 'bytes');
+            outHeaders.set('Access-Control-Allow-Origin', '*');
+
+            return new Response(res.body, {
+              status: res.status,
+              headers: outHeaders,
+            });
+          } catch (e) {
+            lastErr = e;
+            console.warn(`[aurisstream] fetch error attempt=${attempt}`, e.message || e);
+            if (attempt < 2) {
+              await new Promise((r) => setTimeout(r, 350));
+              continue;
+            }
+          }
         }
 
-        const outHeaders = new Headers();
-        const ct = res.headers.get('content-type') || 'audio/mpeg';
-        outHeaders.set('Content-Type', ct);
-        const cl = res.headers.get('content-length');
-        if (cl) outHeaders.set('Content-Length', cl);
-        const cr = res.headers.get('content-range');
-        if (cr) outHeaders.set('Content-Range', cr);
-        outHeaders.set('Accept-Ranges', res.headers.get('accept-ranges') || 'bytes');
-        outHeaders.set('Access-Control-Allow-Origin', '*');
-
-        return new Response(res.body, {
-          status: res.status,
-          headers: outHeaders,
-        });
+        console.warn('[aurisstream] give up', lastStatus, lastErr?.message || '');
+        return new Response('Stream error', { status: 502 });
       } catch (e) {
         console.warn('[aurisstream]', e.message || e);
         return new Response('Stream error', { status: 502 });
