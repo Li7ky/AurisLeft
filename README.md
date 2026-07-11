@@ -64,8 +64,6 @@ npm run dist
 | 主进程 | Node.js（CommonJS） |
 | 存储 | 用户目录 JSON（原子写） |
 
-> 历史 Tauri 实现见 `src-tauri/DEPRECATED.md`，已不参与构建。可安全删除整个 `src-tauri/` 目录以减小体积。
-
 ## 开源协议
 
 MIT

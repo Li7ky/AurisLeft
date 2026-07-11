@@ -7,47 +7,46 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Tauri / Rust
-src-tauri/target
-src-tauri/gen
-*.db
-*.sqlite
-*.sqlite3
 
 # Build outputs
+dist
+dist-ssr
 release
 out
+*.local
+*.part
 *.dmg
 *.exe
 *.msi
 *.deb
 *.AppImage
 *.rpm
-*.part
+
+# Editor / IDE / local tools
+.vscode/
+.idea/
+.claude/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # Env / secrets
 .env
 .env.*
 !.env.example
 
+# Databases / local data
+*.db
+*.sqlite
+*.sqlite3
+
 # OS files
 Thumbs.db
 .DS_Store
-.claude/
-.claude/settings.local.json
+
+# Deprecated Tauri (do not re-add)
+src-tauri/
