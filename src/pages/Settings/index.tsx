@@ -11,7 +11,7 @@ import {
   toggleLxSource,
   toggleSource,
   type LxHostInfo,
-} from '../../utils/tauri';
+} from '../../utils/desktop';
 import { invoke } from '../../utils/ipc';
 import './index.css';
 

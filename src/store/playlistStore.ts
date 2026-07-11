@@ -9,7 +9,7 @@ import {
   reorderPlaylistSongs,
   importPlaylist,
   exportPlaylist,
-} from '../utils/tauri';
+} from '../utils/desktop';
 import type { Playlist, PlaylistSong, Song } from '../types';
 
 interface PlaylistState {

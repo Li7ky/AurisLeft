@@ -5,7 +5,7 @@ import {
   removeLocalMusicDir,
   listLocalMusicDirs,
   selectDirectory,
-} from '../utils/tauri';
+} from '../utils/desktop';
 import type { LocalSong } from '../types';
 import { localSongToSong } from '../utils/song';
 import { usePlayerStore } from '../store/playerStore';

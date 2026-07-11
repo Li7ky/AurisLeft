@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { searchMusic } from '../utils/tauri';
+import { searchMusic } from '../utils/desktop';
 import type { Song, SearchResult } from '../types';
 import { Quality } from '../types';
 

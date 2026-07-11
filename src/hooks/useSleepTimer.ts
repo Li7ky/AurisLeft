@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { listen } from '../utils/ipc';
-import { startSleepTimer, cancelSleepTimer, getSleepTimerStatus } from '../utils/tauri';
+import { startSleepTimer, cancelSleepTimer, getSleepTimerStatus } from '../utils/desktop';
 
 export function useSleepTimer() {
   const [isActive, setIsActive] = useState(false);
