@@ -11,7 +11,12 @@
 
 ## 下载
 
-Windows 安装包 → [Releases](https://github.com/Li7ky/AurisLeft/releases)
+都在 [Releases](https://github.com/Li7ky/AurisLeft/releases) 同一页：
+
+| 版本 | 说明 |
+|---|---|
+| **[v1.0.0 正式版](https://github.com/Li7ky/AurisLeft/releases/tag/v1.0.0)** | **推荐**，日常使用下这个 |
+| [v0.2.0-beta 测试版](https://github.com/Li7ky/AurisLeft/releases/tag/v0.2.0-beta) | 早期测试包，不推荐日常用 |
 
 ## 怎么用
 
