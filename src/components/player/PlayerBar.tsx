@@ -23,7 +23,7 @@ import { useFavoriteStore } from '../../store/favoriteStore';
 import { PlaybackState, Quality, RepeatMode } from '../../types';
 import { useToast } from '../common/Toast/useToast';
 import CoverImage from '../common/CoverImage';
-import { startSleepTimer, cancelSleepTimer, getSleepTimerStatus } from '../../utils/tauri';
+import { startSleepTimer, cancelSleepTimer, getSleepTimerStatus } from '../../utils/desktop';
 import './PlayerBar.css';
 
 const QUALITY_OPTIONS: { q: Quality; label: string }[] = [

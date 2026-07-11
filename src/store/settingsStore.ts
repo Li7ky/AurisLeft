@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import {
-  loadSettings as tauriLoadSettings,
-  saveSettings as tauriSaveSettings,
-  setTheme as tauriSetTheme,
-} from '../utils/tauri';
+  loadSettings as desktopLoadSettings,
+  saveSettings as desktopSaveSettings,
+  setTheme as desktopSetTheme,
+} from '../utils/desktop';
 import type { ThemeConfig, AppSettings, PlayerSettings } from '../types';
 import { Quality, RepeatMode } from '../types';
 
@@ -125,8 +125,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     try {
       set({ theme });
       applyThemeVariables(theme);
-      await tauriSetTheme(theme);
-      await tauriSaveSettings(buildAppSettings(get()));
+      await desktopSetTheme(theme);
+      await desktopSaveSettings(buildAppSettings(get()));
       toast?.('主题已更新', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -174,7 +174,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     }
 
     try {
-      await tauriSaveSettings(buildAppSettings(get()));
+      await desktopSaveSettings(buildAppSettings(get()));
       toast?.('设置已保存', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -186,7 +186,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   loadSettings: async (toast?: ToastFn) => {
     set({ loading: true, error: null });
     try {
-      const settings: AppSettings = await tauriLoadSettings();
+      const settings: AppSettings = await desktopLoadSettings();
       const volume =
         typeof settings.player.volume === 'number' && Number.isFinite(settings.player.volume)
           ? Math.min(1, Math.max(0, settings.player.volume))
@@ -225,7 +225,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   saveSettings: async (toast?: ToastFn) => {
     try {
-      await tauriSaveSettings(buildAppSettings(get()));
+      await desktopSaveSettings(buildAppSettings(get()));
       toast?.('设置已保存', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -245,7 +245,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     // Debounce disk writes for slider drags
     if (persistTimer) clearTimeout(persistTimer);
     persistTimer = setTimeout(() => {
-      void tauriSaveSettings(buildAppSettings(get())).catch(() => undefined);
+      void desktopSaveSettings(buildAppSettings(get())).catch(() => undefined);
     }, 400);
   },
 }));

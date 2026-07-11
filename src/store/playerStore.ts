@@ -9,7 +9,7 @@ import {
   playLocalFile as desktopPlayLocalFile,
   fetchLyric as desktopFetchLyric,
   getLxStatus,
-} from '../utils/tauri';
+} from '../utils/desktop';
 import { isElectronRuntime, listen as desktopListen } from '../utils/ipc';
 import type { LyricLine, Song } from '../types';
 import { audioEngine } from '../core/audioEngine';

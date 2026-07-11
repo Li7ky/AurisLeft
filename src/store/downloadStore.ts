@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { downloadSong } from '../utils/tauri';
+import { downloadSong } from '../utils/desktop';
 import { listen } from '../utils/ipc';
 import type { DownloadTask, Song, Quality } from '../types';
 import { DownloadStatus } from '../types';

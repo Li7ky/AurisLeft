@@ -1,6 +1,5 @@
 /**
  * Desktop API wrappers (Electron IPC).
- * Historically named "tauri" from the previous shell; all calls go through invoke().
  */
 import { invoke } from './ipc';
 import type {

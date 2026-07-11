@@ -20,7 +20,7 @@ import LyricDisplay from '../../components/lyric/LyricDisplay';
 import { MediaCard } from '../../components/common/MediaCard';
 import AppLogo from '../../components/common/AppLogo';
 import CoverImage from '../../components/common/CoverImage';
-import { getLxStatus } from '../../utils/tauri';
+import { getLxStatus } from '../../utils/desktop';
 import { useToast } from '../../components/common/Toast/useToast';
 import './index.css';
 

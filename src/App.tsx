@@ -5,7 +5,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import AppLayout from './components/layout/AppLayout';
 import { subscribePlayerEvents } from './store/playerStore';
 import { useSettingsStore } from './store/settingsStore';
-import { loadSourcesFromFile } from './utils/tauri';
+import { loadSourcesFromFile } from './utils/desktop';
 import { useToast } from './components/common/Toast/useToast';
 import Home from './pages/Home';
 import LocalMusic from './pages/LocalMusic';

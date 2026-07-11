@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Song } from '../types';
-import { listFavorites, toggleFavorite as apiToggle } from '../utils/tauri';
+import { listFavorites, toggleFavorite as apiToggle } from '../utils/desktop';
 import { songKey } from '../utils/song';
 
 interface FavoriteState {
