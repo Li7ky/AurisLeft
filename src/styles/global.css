@@ -4,6 +4,9 @@
      Flagship Aggregated Music Platform
    ═══════════════════════════════════════════ */
 
+  /* 播放栏高度：Toast 贴底定位用 */
+  --pb-h: 78px;
+
   /* ── Base Surfaces ── */
   --bg-base: #0c0e12;
   --bg-elevated: #141820;

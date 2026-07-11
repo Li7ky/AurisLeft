@@ -108,10 +108,15 @@ export interface SourceSettings {
   cacheDurationMinutes: number;
 }
 
+export interface OnboardingSettings {
+  seen: boolean;
+}
+
 export interface AppSettings {
   player: PlayerSettings;
   appearance: AppearanceSettings;
   sources: SourceSettings;
+  onboarding?: OnboardingSettings;
 }
 
 export interface Playlist {
@@ -141,6 +146,7 @@ export interface SearchResult {
   total: number;
   page: number;
   perPage: number;
+  hasMore?: boolean;
 }
 
 export interface ThemeConfig {

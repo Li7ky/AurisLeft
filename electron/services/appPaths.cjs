@@ -14,6 +14,12 @@ function getDownloadsDir() {
   return dir;
 }
 
+function getLogsDir() {
+  const dir = path.join(getAppDataDir(), 'logs');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 function getDbPath() {
   return path.join(getAppDataDir(), 'music_player.json');
 }
@@ -27,10 +33,18 @@ function getLxPrefsPath() {
   return path.join(getAppDataDir(), 'lx-source-prefs.json');
 }
 
+function getBackupsDir() {
+  const dir = path.join(getAppDataDir(), 'backups');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 module.exports = {
   getAppDataDir,
   getDownloadsDir,
+  getLogsDir,
   getDbPath,
   getSourcesPath,
   getLxPrefsPath,
+  getBackupsDir,
 };

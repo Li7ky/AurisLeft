@@ -104,6 +104,24 @@ class AudioEngine {
     });
   }
 
+  /** 点下一首/切歌时立刻停掉当前声音（不必等新链解析完） */
+  public stopForSwitch() {
+    this.playToken += 1;
+    this.generation += 1;
+    this.playPromiseActive = false;
+    try {
+      this.audio.pause();
+    } catch {
+      /* ignore */
+    }
+    try {
+      this.audio.removeAttribute('src');
+      this.audio.load();
+    } catch {
+      /* ignore */
+    }
+  }
+
   public async play(url: string) {
     if (!url) {
       if (this.audio.paused && this.audio.src) {
@@ -147,13 +165,12 @@ class AudioEngine {
         this.audio.addEventListener('canplay', onReady, { once: true });
         this.audio.addEventListener('error', onError, { once: true });
 
-        // Timeout — some streams never fire canplay
+        // 流媒体有时不触发 canplay；尽快尝试 play，避免干等 8 秒
         window.setTimeout(() => {
           if (token !== this.playToken) return;
           cleanup();
-          // try play anyway
           resolve();
-        }, 8000);
+        }, 2500);
       });
 
       if (token !== this.playToken) {

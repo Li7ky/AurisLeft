@@ -35,5 +35,27 @@ export function localSongToSong(song: LocalSong): Song {
 }
 
 export function isLocalSong(song: Song): boolean {
-  return song.source === 'local';
+  if (song.source === 'local') return true;
+  const id = String(song.songId || song.id || '');
+  // 兼容异常元数据：source 丢了但 songId 仍是本机路径
+  if (/^[a-zA-Z]:[\\/]/.test(id) || id.startsWith('\\\\') || id.startsWith('/')) {
+    return true;
+  }
+  if (id.startsWith('local:') || String(song.id || '').startsWith('local:')) {
+    return true;
+  }
+  return false;
+}
+
+/** 从可能被污染的 Song 里取出真实本地路径 */
+export function localSongPath(song: Song): string {
+  const id = String(song.songId || '');
+  if (id.startsWith('local:')) return id.slice(6);
+  if (/^[a-zA-Z]:[\\/]/.test(id) || id.startsWith('\\\\') || id.startsWith('/')) {
+    return id;
+  }
+  const name = String(song.name || '');
+  if (name.startsWith('local:')) return name.slice(6);
+  if (/^[a-zA-Z]:[\\/]/.test(name)) return name;
+  return id || name;
 }

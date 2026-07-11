@@ -20,7 +20,7 @@ import LyricDisplay from '../../components/lyric/LyricDisplay';
 import { MediaCard } from '../../components/common/MediaCard';
 import AppLogo from '../../components/common/AppLogo';
 import CoverImage from '../../components/common/CoverImage';
-import { getLxStatus } from '../../utils/desktop';
+import { getNkiQqStatus } from '../../utils/desktop';
 import { useToast } from '../../components/common/Toast/useToast';
 import './index.css';
 
@@ -80,14 +80,14 @@ export default function Home() {
   const loadRecent = useRecentStore((s) => s.loadRecent);
   const clearRecent = useRecentStore((s) => s.clearRecent);
   const { addToast } = useToast();
-  const [lxReadyCount, setLxReadyCount] = useState<number | null>(null);
+  const [qqReady, setQqReady] = useState<boolean | null>(null);
 
   useEffect(() => {
     loadPlaylists();
     void loadRecent();
-    getLxStatus()
-      .then((s) => setLxReadyCount(s.count ?? 0))
-      .catch(() => setLxReadyCount(0));
+    getNkiQqStatus()
+      .then((s) => setQqReady(Boolean(s.enabled && s.hasKey)))
+      .catch(() => setQqReady(false));
   }, [loadPlaylists, loadRecent]);
 
   const isPlayingSomething =
@@ -100,12 +100,12 @@ export default function Home() {
 
   return (
     <div className="home-page">
-      {lxReadyCount === 0 && (
+      {qqReady === false && (
         <div className="home-page__banner home-page__banner--warn">
           <Sparkles size={16} />
           <div>
-            <strong>还没有开启的播放音源</strong>
-            <p>请到设置页打开至少一个洛雪兼容音源，否则无法取链播放。</p>
+            <strong>QQ 解析未启用</strong>
+            <p>请到设置页开启「西瓜糖 QQ 解析」并配置密钥，否则在线取链可能失败。</p>
           </div>
           <button className="btn btn--primary" onClick={() => navigate('/settings')}>
             去设置
@@ -113,12 +113,12 @@ export default function Home() {
         </div>
       )}
 
-      {lxReadyCount !== null && lxReadyCount > 0 && (
+      {qqReady === true && (
         <div className="home-page__banner">
           <Sparkles size={16} />
           <div>
-            <strong>播放音源已就绪（{lxReadyCount} 套）</strong>
-            <p>可直接搜索试听；可在设置中单独开关每个音源。</p>
+            <strong>西瓜糖 QQ 解析已就绪</strong>
+            <p>可直接搜索试听；付费曲优先走 QQ 解析。</p>
           </div>
           <button className="btn btn--primary" onClick={() => navigate('/search')}>
             去搜索

@@ -22,6 +22,10 @@
   background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 
+.home-page__banner--info {
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
 .home-page__banner > div {
   flex: 1;
   min-width: 0;

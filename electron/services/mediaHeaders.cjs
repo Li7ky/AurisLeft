@@ -18,7 +18,9 @@ function pickMediaHeaders(targetUrl) {
   } else if (/kugou|kgimg|fanxing/i.test(u)) {
     headers.Referer = 'https://www.kugou.com/';
     headers.Origin = 'https://www.kugou.com';
-  } else if (/gtimg|qq\.com|myqcloud|tencentmusic/i.test(u)) {
+  } else if (
+    /gtimg|qq\.com|myqcloud|tencentmusic|qqmusic|isure\d*\.stream\.qqmusic/i.test(u)
+  ) {
     headers.Referer = 'https://y.qq.com/';
     headers.Origin = 'https://y.qq.com';
   } else if (/migu/i.test(u)) {

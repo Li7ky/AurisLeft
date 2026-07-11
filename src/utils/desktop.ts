@@ -76,8 +76,28 @@ export async function searchMusic(keyword: string, page: number): Promise<Search
 export async function playSong(
   song: Song,
   quality: Quality
-): Promise<{ url: string; duration: number } | void> {
-  return invoke<{ url: string; duration: number } | void>('play_song', { song, quality });
+): Promise<{
+  url: string;
+  duration: number;
+  coverUrl?: string | null;
+  album?: string;
+  rawUrl?: string;
+  gen?: number;
+  fromCache?: boolean;
+  cancelled?: boolean;
+  code?: string;
+} | void> {
+  return invoke('play_song', { song, quality });
+}
+
+/** 后台预热单曲（悬停/即将播放），命中后可秒开 */
+export async function warmSong(song: Song, quality?: Quality): Promise<{ ok: boolean; cached?: boolean }> {
+  return invoke('warm_song', { song, quality: quality || '320k' });
+}
+
+/** 批量预热（队列下一首等） */
+export async function warmSongs(songs: Song[], quality?: Quality): Promise<{ ok: boolean }> {
+  return invoke('warm_songs', { songs, quality: quality || '320k' });
 }
 
 export async function pausePlayback(): Promise<void> {
@@ -232,4 +252,107 @@ export async function listRecentPlays(limit = 40): Promise<Song[]> {
 
 export async function clearRecentPlays(): Promise<void> {
   return invoke('clear_recent_plays');
+}
+
+export async function exportBackup(): Promise<{ canceled: boolean; path?: string }> {
+  return invoke('export_backup');
+}
+
+export async function importBackup(): Promise<{
+  canceled: boolean;
+  ok?: boolean;
+  restored?: string[];
+  path?: string;
+}> {
+  return invoke('import_backup');
+}
+
+export async function openLogDir(): Promise<string> {
+  return invoke('open_log_dir');
+}
+
+export async function getLogDir(): Promise<string> {
+  return invoke('get_log_dir');
+}
+
+export async function getAppVersion(): Promise<string> {
+  return invoke('get_app_version');
+}
+
+export interface UpdateCheckResult {
+  current: string;
+  latest: string;
+  hasUpdate: boolean;
+  name?: string;
+  notes?: string;
+  url?: string;
+  publishedAt?: string | null;
+  message?: string;
+  error?: string;
+}
+
+export async function checkForUpdates(): Promise<UpdateCheckResult> {
+  return invoke('check_for_updates');
+}
+
+export async function openExternal(url: string): Promise<void> {
+  return invoke('open_external', { url });
+}
+
+export async function markOnboardingSeen(): Promise<void> {
+  return invoke('mark_onboarding_seen');
+}
+
+export interface NkiQqStatus {
+  enabled: boolean;
+  hasKey: boolean;
+  keyHint: string;
+  api: string;
+}
+
+export async function getNkiQqStatus(): Promise<NkiQqStatus> {
+  return invoke('get_nki_qq_status');
+}
+
+export async function setNkiQqKey(apiKey: string): Promise<{ ok: boolean; hasKey: boolean }> {
+  return invoke('set_nki_qq_key', { apiKey });
+}
+
+export async function setNkiQqEnabled(
+  enabled: boolean
+): Promise<{ ok: boolean; enabled: boolean }> {
+  return invoke('set_nki_qq_enabled', { enabled });
+}
+
+/** Wait until LX sources finish init (or timeout). Returns status snapshot. */
+export async function waitForSourcesReady(timeoutMs = 25000): Promise<{
+  ready: boolean;
+  count: number;
+  initializing: boolean;
+}> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const s = await getLxStatus();
+    if (!s.initializing && (s.count > 0 || s.ready === true || s.total === 0)) {
+      return {
+        ready: Boolean(s.count > 0 || s.enabled),
+        count: s.count ?? 0,
+        initializing: false,
+      };
+    }
+    if (!s.initializing && s.count === 0) {
+      return { ready: false, count: 0, initializing: false };
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  const last = await getLxStatus().catch(() => ({
+    count: 0,
+    enabled: false,
+    initializing: true,
+  }));
+  return {
+    ready: Boolean(last.count > 0 || last.enabled),
+    count: last.count ?? 0,
+    initializing: Boolean(last.initializing),
+  };
 }
