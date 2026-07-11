@@ -4,17 +4,22 @@ import {
   saveSettings as tauriSaveSettings,
   setTheme as tauriSetTheme,
 } from '../utils/tauri';
-import type { ThemeConfig, AppSettings } from '../types';
-import { Quality } from '../types';
-import { RepeatMode } from '../types';
+import type { ThemeConfig, AppSettings, PlayerSettings } from '../types';
+import { Quality, RepeatMode } from '../types';
 
 interface SettingsState {
   theme: ThemeConfig;
   defaultQuality: Quality;
   autoPlayNext: boolean;
   showLyric: boolean;
+  /** Last-known player prefs (also mirrored in playerStore) */
+  volume: number;
+  shuffle: boolean;
+  repeatMode: RepeatMode;
   loading: boolean;
   error: string | null;
+  /** Full sources block preserved across saves */
+  sources: AppSettings['sources'];
 }
 
 type ToastFn = ((message: string, type?: 'success' | 'error' | 'info') => void) | undefined;
@@ -24,17 +29,25 @@ interface SettingsActions {
   setSetting: (key: string, value: unknown, toast?: ToastFn) => Promise<void>;
   loadSettings: (toast?: ToastFn) => Promise<void>;
   saveSettings: (toast?: ToastFn) => Promise<void>;
+  /** Patch player prefs without toast spam (volume/shuffle/repeat) */
+  persistPlayerPrefs: (partial: Partial<PlayerSettings>) => Promise<void>;
 }
 
 type SettingsStore = SettingsState & SettingsActions;
 
 const defaultTheme: ThemeConfig = {
-  primary: '#1DB954',
-  background: '#121212',
-  surface: '#1e1e1e',
-  textPrimary: '#ffffff',
-  textSecondary: '#b3b3b3',
-  accent: '#1ed760',
+  primary: '#e8a54b',
+  background: '#0c0e12',
+  surface: '#141820',
+  textPrimary: '#f3f1ec',
+  textSecondary: '#8a8794',
+  accent: '#9b8cff',
+};
+
+const defaultSources: AppSettings['sources'] = {
+  timeoutMs: 8000,
+  failThreshold: 3,
+  cacheDurationMinutes: 30,
 };
 
 function isLightColor(hexColor: string) {
@@ -82,35 +95,38 @@ function buildAppSettings(state: SettingsState): AppSettings {
     player: {
       defaultQuality: state.defaultQuality,
       autoPlayNext: state.autoPlayNext,
-      volume: 0.8,
-      shuffle: false,
-      repeatMode: RepeatMode.None,
+      volume: state.volume,
+      shuffle: state.shuffle,
+      repeatMode: state.repeatMode,
     },
     appearance: {
       theme: state.theme,
       showLyric: state.showLyric,
     },
-    sources: {
-      timeoutMs: 8000,
-      failThreshold: 3,
-      cacheDurationMinutes: 30,
-    },
+    sources: state.sources,
   };
 }
+
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   theme: defaultTheme,
   defaultQuality: Quality.K320,
   autoPlayNext: true,
   showLyric: true,
+  volume: 0.8,
+  shuffle: false,
+  repeatMode: RepeatMode.None,
   loading: false,
   error: null,
+  sources: defaultSources,
 
   setTheme: async (theme: ThemeConfig, toast?: ToastFn) => {
     try {
       set({ theme });
       applyThemeVariables(theme);
       await tauriSetTheme(theme);
+      await tauriSaveSettings(buildAppSettings(get()));
       toast?.('主题已更新', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -134,9 +150,29 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         case 'theme':
           newState.theme = value as ThemeConfig;
           break;
+        case 'volume':
+          newState.volume = value as number;
+          break;
+        case 'shuffle':
+          newState.shuffle = value as boolean;
+          break;
+        case 'repeatMode':
+          newState.repeatMode = value as RepeatMode;
+          break;
       }
       return newState;
     });
+
+    // Keep playerStore quality in sync when default quality changes
+    if (key === 'defaultQuality') {
+      try {
+        const { usePlayerStore } = await import('./playerStore');
+        usePlayerStore.getState().setQuality(value as Quality);
+      } catch {
+        /* ignore */
+      }
+    }
+
     try {
       await tauriSaveSettings(buildAppSettings(get()));
       toast?.('设置已保存', 'success');
@@ -151,14 +187,35 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const settings: AppSettings = await tauriLoadSettings();
+      const volume =
+        typeof settings.player.volume === 'number' && Number.isFinite(settings.player.volume)
+          ? Math.min(1, Math.max(0, settings.player.volume))
+          : 0.8;
+      const shuffle = Boolean(settings.player.shuffle);
+      const repeatMode = (settings.player.repeatMode as RepeatMode) || RepeatMode.None;
+      const defaultQuality = settings.player.defaultQuality || Quality.K320;
+
       set({
         theme: settings.appearance.theme,
-        defaultQuality: settings.player.defaultQuality,
-        autoPlayNext: settings.player.autoPlayNext,
-        showLyric: settings.appearance.showLyric,
+        defaultQuality,
+        autoPlayNext: settings.player.autoPlayNext !== false,
+        showLyric: settings.appearance.showLyric !== false,
+        volume,
+        shuffle,
+        repeatMode,
+        sources: settings.sources || defaultSources,
         loading: false,
       });
       applyThemeVariables(settings.appearance.theme);
+
+      // Hydrate player store (dynamic import avoids circular init issues)
+      const { usePlayerStore } = await import('./playerStore');
+      usePlayerStore.getState().hydrateFromSettings({
+        volume,
+        quality: defaultQuality,
+        shuffle,
+        repeatMode,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ loading: false, error: message });
@@ -168,12 +225,27 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   saveSettings: async (toast?: ToastFn) => {
     try {
-      const state = get();
-      await tauriSaveSettings(buildAppSettings(state));
+      await tauriSaveSettings(buildAppSettings(get()));
       toast?.('设置已保存', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       toast?.(message, 'error');
     }
+  },
+
+  persistPlayerPrefs: async (partial: Partial<PlayerSettings>) => {
+    set((s) => ({
+      volume: partial.volume ?? s.volume,
+      shuffle: partial.shuffle ?? s.shuffle,
+      repeatMode: (partial.repeatMode as RepeatMode) ?? s.repeatMode,
+      defaultQuality: (partial.defaultQuality as Quality) ?? s.defaultQuality,
+      autoPlayNext: partial.autoPlayNext ?? s.autoPlayNext,
+    }));
+
+    // Debounce disk writes for slider drags
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      void tauriSaveSettings(buildAppSettings(get())).catch(() => undefined);
+    }, 400);
   },
 }));

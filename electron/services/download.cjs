@@ -1,0 +1,94 @@
+const fs = require('fs');
+const path = require('path');
+const { pipeline } = require('stream/promises');
+const { Readable } = require('stream');
+const { getDownloadsDir } = require('./appPaths.cjs');
+const { pickMediaHeaders } = require('./mediaHeaders.cjs');
+
+let downloadDir = null;
+
+function getDownloadDir() {
+  if (!downloadDir) downloadDir = getDownloadsDir();
+  return downloadDir;
+}
+
+function setDownloadDir(dir) {
+  fs.mkdirSync(dir, { recursive: true });
+  downloadDir = dir;
+}
+
+function finalize(tmpPath, filePath, onProgress) {
+  if (fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      /* ignore */
+    }
+  }
+  fs.renameSync(tmpPath, filePath);
+  if (onProgress) onProgress(100);
+  return filePath;
+}
+
+/**
+ * Stream download with CDN Referer headers. Avoids loading entire file into memory when possible.
+ */
+async function downloadToFile(url, filename, onProgress) {
+  const dir = getDownloadDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const safeName = String(filename || 'download').replace(/[<>:"/\\|?*]/g, '_');
+  const filePath = path.join(dir, safeName);
+  const tmpPath = `${filePath}.part`;
+
+  try {
+    if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+  } catch {
+    /* ignore */
+  }
+
+  const headers = pickMediaHeaders(url);
+  const res = await fetch(url, { headers, redirect: 'follow' });
+  if (!res.ok) throw new Error(`下载失败 HTTP ${res.status}`);
+
+  const total = Number(res.headers.get('content-length') || 0);
+
+  // Prefer streaming body when available
+  if (res.body && typeof Readable.fromWeb === 'function') {
+    try {
+      let received = 0;
+      const nodeStream = Readable.fromWeb(res.body);
+      const out = fs.createWriteStream(tmpPath);
+
+      nodeStream.on('data', (chunk) => {
+        received += chunk.length || 0;
+        if (total > 0 && onProgress) {
+          onProgress(Math.min(99, Math.round((received / total) * 100)));
+        }
+      });
+
+      await pipeline(nodeStream, out);
+      return finalize(tmpPath, filePath, onProgress);
+    } catch (e) {
+      console.warn('[download] stream failed, re-fetch buffer', e.message || e);
+      try {
+        if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  // Fallback: full buffer (still with proper headers)
+  const res2 = await fetch(url, { headers, redirect: 'follow' });
+  if (!res2.ok) throw new Error(`下载失败 HTTP ${res2.status}`);
+  const buf = Buffer.from(await res2.arrayBuffer());
+  fs.writeFileSync(tmpPath, buf);
+  if (onProgress) onProgress(99);
+  return finalize(tmpPath, filePath, onProgress);
+}
+
+module.exports = {
+  getDownloadDir,
+  setDownloadDir,
+  downloadToFile,
+};

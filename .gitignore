@@ -31,14 +31,23 @@ src-tauri/gen
 *.sqlite3
 
 # Build outputs
+release
+out
 *.dmg
 *.exe
 *.msi
 *.deb
 *.AppImage
 *.rpm
+*.part
+
+# Env / secrets
+.env
+.env.*
+!.env.example
 
 # OS files
 Thumbs.db
 .DS_Store
+.claude/
 .claude/settings.local.json

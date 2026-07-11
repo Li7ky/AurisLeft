@@ -365,9 +365,10 @@ impl AudioEngine {
             return Ok(total_secs);
         }
 
+        // Full-file download before decode (no streaming yet). Allow enough time for large tracks.
         let client = reqwest::blocking::Client::builder()
-            .connect_timeout(Duration::from_secs(8))
-            .timeout(Duration::from_secs(20))
+            .connect_timeout(Duration::from_secs(15))
+            .timeout(Duration::from_secs(120))
             .build()
             .map_err(|e| {
                 crate::core::error::AppError::PlaybackError(format!(

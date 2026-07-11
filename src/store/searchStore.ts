@@ -26,6 +26,47 @@ type SearchStore = SearchState & SearchActions;
 
 let searchRequestId = 0;
 
+/** 同名同歌手去重，优先可播性更好的平台结果 */
+function dedupeSongs(songs: Song[]): Song[] {
+  const platformScore = (s: Song) => {
+    const p = s.platform || s.source || '';
+    // 酷我/酷狗通常完整曲更多
+    if (p === 'kw') return 0;
+    if (p === 'kg') return 1;
+    if (p === 'tx') return 2;
+    if (p === 'wy') return 3;
+    return 4;
+  };
+  const rank = (s: Song) => {
+    let score = platformScore(s);
+    if (s.playableHint === 'maybe_vip') score += 10;
+    if (!s.coverUrl) score += 2;
+    if (!s.duration) score += 1;
+    return score;
+  };
+
+  const map = new Map<string, Song>();
+  for (const song of songs) {
+    const key = `${(song.name || '').trim().toLowerCase()}::${(song.artist || '')
+      .trim()
+      .toLowerCase()}`;
+    if (!key || key === '::') {
+      // 无法去重时直接保留
+      map.set(songKeyFallback(song), song);
+      continue;
+    }
+    const prev = map.get(key);
+    if (!prev || rank(song) < rank(prev)) {
+      map.set(key, song);
+    }
+  }
+  return Array.from(map.values());
+}
+
+function songKeyFallback(song: Song) {
+  return `${song.source}:${song.songId}:${song.name}`;
+}
+
 export const useSearchStore = create<SearchStore>((set, get) => ({
   keyword: '',
   results: new Map(),
@@ -43,11 +84,11 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
       const result: SearchResult = await searchMusic(keyword, p);
       if (requestId !== searchRequestId) return;
 
+      // 多平台合并去重：同名同歌手只保留一条（优先非会员、有封面、时长更完整）
+      const merged = dedupeSongs(result.songs);
+      // 统一放进一个列表键，UI 不按平台分组
       const sourceMap = new Map<string, Song[]>();
-      for (const song of result.songs) {
-        const existing = sourceMap.get(song.source) ?? [];
-        sourceMap.set(song.source, [...existing, song]);
-      }
+      sourceMap.set('all', merged);
       set({
         results: sourceMap,
         hasMore: result.songs.length > 0,

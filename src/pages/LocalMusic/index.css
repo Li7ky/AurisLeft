@@ -1,26 +1,35 @@
 .local-music {
-  padding: 14px 16px 20px;
+  padding: 22px 24px 28px;
   height: 100%;
   overflow-y: auto;
 }
 
 .local-music__header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 10px;
-  gap: 10px;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .local-music__title {
-  font-size: 19px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  letter-spacing: -0.02em;
+}
+
+.local-music__subtitle {
   margin: 0;
+  font-size: 13px;
+  color: var(--text-subdued);
 }
 
 .local-music__actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .local-music__btn {
@@ -28,10 +37,13 @@
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 78%, var(--background));
   color: var(--text-primary);
-  padding: 6px 12px;
+  padding: 8px 14px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .local-music__btn:disabled {
@@ -61,6 +73,16 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: color-mix(in srgb, var(--surface) 90%, transparent);
+}
+
+.local-music__list--virtual {
+  overflow: auto;
+}
+
+.local-music__td--actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .local-music__dirs {
@@ -141,6 +163,19 @@
 
 .local-music__td--title {
   max-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.local-music__cover {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  margin-right: 8px;
+  vertical-align: middle;
+  display: inline-block;
 }
 
 .local-music__index {
@@ -171,4 +206,71 @@
 .local-music__empty p {
   margin: 0;
   font-size: 13px;
+}
+
+.local-music__dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  backdrop-filter: blur(4px);
+}
+
+.local-music__dialog {
+  width: min(440px, 92vw);
+  background: var(--bg-elevated);
+  border: 1px solid var(--decorative-border-light);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow-xl);
+}
+
+.local-music__dialog h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.local-music__dialog p {
+  margin: 0 0 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.local-music__dialog code {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--accent-primary);
+  background: var(--bg-tinted);
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.local-music__dialog-input {
+  width: 100%;
+  margin-bottom: 14px;
+  background: var(--bg-base);
+  border: 1px solid var(--decorative-border);
+  border-radius: 10px;
+  color: var(--text-base);
+  padding: 10px 12px;
+  font-size: 13px;
+  outline: none;
+}
+
+.local-music__dialog-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.local-music__dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
 }

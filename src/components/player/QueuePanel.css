@@ -1,0 +1,126 @@
+.queue-panel {
+  position: absolute;
+  right: 16px;
+  bottom: calc(var(--player-bar-height) + 12px);
+  width: 340px;
+  max-height: min(520px, calc(100vh - var(--player-bar-height) - var(--top-bar-height) - 40px));
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--decorative-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: calc(var(--z-player) + 1);
+  overflow: hidden;
+  animation: slideInRight 0.22s ease;
+}
+
+.queue-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--decorative-border);
+}
+
+.queue-panel__title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+}
+
+.queue-panel__subtitle {
+  margin: 2px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-subdued);
+}
+
+.queue-panel__header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.queue-panel__list {
+  overflow-y: auto;
+  padding: 8px;
+  flex: 1;
+}
+
+.queue-panel__empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-subdued);
+  font-size: var(--font-size-sm);
+}
+
+.queue-panel__item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-base);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.queue-panel__item:hover {
+  background: var(--bg-tinted);
+}
+
+.queue-panel__item--active {
+  background: var(--accent-primary-dim);
+  color: var(--accent-primary);
+}
+
+.queue-panel__index {
+  font-size: var(--font-size-xs);
+  color: var(--text-subdued);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.queue-panel__item--active .queue-panel__index {
+  color: var(--accent-primary);
+}
+
+.queue-panel__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.queue-panel__name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.queue-panel__artist {
+  font-size: var(--font-size-xs);
+  color: var(--text-subdued);
+}
+
+.queue-panel__remove {
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-subdued);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+}
+
+.queue-panel__item:hover .queue-panel__remove {
+  opacity: 1;
+}
+
+.queue-panel__remove:hover {
+  color: var(--text-negative);
+  background: var(--bg-tinted);
+}

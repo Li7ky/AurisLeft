@@ -1,22 +1,26 @@
 import { useState, useCallback } from 'react';
 import {
   scanLocalMusic,
-  playLocalFile,
   addLocalMusicDir,
   removeLocalMusicDir,
   listLocalMusicDirs,
+  selectDirectory,
 } from '../utils/tauri';
 import type { LocalSong } from '../types';
+import { localSongToSong } from '../utils/song';
+import { usePlayerStore } from '../store/playerStore';
 
 export function useLocalMusic() {
   const [localSongs, setLocalSongs] = useState<LocalSong[]>([]);
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<string>('');
   const [scanDirs, setScanDirs] = useState<string[]>([]);
+  const [showDirDialog, setShowDirDialog] = useState(false);
+  const [dirInput, setDirInput] = useState('');
 
   const scan = useCallback(async () => {
     setScanning(true);
-    setScanProgress('正在扫描本地音乐...');
+    setScanProgress('正在扫描本地音乐…');
     try {
       const songs = await scanLocalMusic();
       setLocalSongs(songs);
@@ -28,9 +32,11 @@ export function useLocalMusic() {
     }
   }, []);
 
-  const play = useCallback(async (filePath: string) => {
-    await playLocalFile(filePath);
-  }, []);
+  const play = useCallback(async (filePath: string, songs = localSongs) => {
+    const list = songs.map(localSongToSong);
+    const index = list.findIndex((s) => s.songId === filePath);
+    await usePlayerStore.getState().playList(list, index >= 0 ? index : 0);
+  }, [localSongs]);
 
   const loadDirs = useCallback(async () => {
     try {
@@ -41,16 +47,29 @@ export function useLocalMusic() {
     }
   }, []);
 
-  const addDir = useCallback(async () => {
-    const dirPath = window.prompt(
-      '当前未安装 Tauri 文件夹选择插件，请手动输入音乐文件夹的完整路径（例如 D:/Music）：'
-    );
-    const trimmedPath = dirPath?.trim();
-
-    if (dirPath === null) {
-      return;
+  const openAddDirDialog = useCallback(async () => {
+    try {
+      const picked = await selectDirectory();
+      if (picked) {
+        await addLocalMusicDir(picked);
+        await loadDirs();
+        setScanProgress(`已添加本地音乐目录：${picked}`);
+        return;
+      }
+    } catch {
+      /* fall through to manual input */
     }
+    setDirInput('');
+    setShowDirDialog(true);
+  }, [loadDirs]);
 
+  const closeAddDirDialog = useCallback(() => {
+    setShowDirDialog(false);
+    setDirInput('');
+  }, []);
+
+  const confirmAddDir = useCallback(async () => {
+    const trimmedPath = dirInput.trim();
     if (!trimmedPath) {
       setScanProgress('添加目录失败：路径不能为空');
       return;
@@ -60,10 +79,12 @@ export function useLocalMusic() {
       await addLocalMusicDir(trimmedPath);
       await loadDirs();
       setScanProgress(`已添加本地音乐目录：${trimmedPath}`);
+      setShowDirDialog(false);
+      setDirInput('');
     } catch (error) {
       setScanProgress(`添加目录失败，请确认路径存在且可访问：${error}`);
     }
-  }, [loadDirs]);
+  }, [dirInput, loadDirs]);
 
   const removeDir = useCallback(
     async (dirPath: string) => {
@@ -73,20 +94,20 @@ export function useLocalMusic() {
     [loadDirs]
   );
 
-  const addToPlaylist = useCallback(async (_playlistId: number, _song: LocalSong) => {
-    throw new Error('addToPlaylist 暂未实现');
-  }, []);
-
   return {
     localSongs,
     scanning,
     scanProgress,
     scanDirs,
+    showDirDialog,
+    dirInput,
+    setDirInput,
     scan,
     play,
-    addDir,
+    openAddDirDialog,
+    closeAddDirDialog,
+    confirmAddDir,
     removeDir,
     loadDirs,
-    addToPlaylist,
   };
 }
