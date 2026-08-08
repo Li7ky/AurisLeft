@@ -28,7 +28,7 @@
 
 .favorites-page__empty {
   border: 1px dashed var(--decorative-border-light);
-  border-radius: 14px;
+  border-radius: 28px;
   padding: 48px 20px;
   text-align: center;
   color: var(--text-subdued);
@@ -44,10 +44,11 @@
 }
 
 .favorites-page__list {
-  border: 1px solid var(--decorative-border);
-  border-radius: 14px;
+  border: none;
+  border-radius: 12px;
   overflow: hidden;
   background: var(--bg-elevated);
+  box-shadow: none;
 }
 
 .favorites-page__row {

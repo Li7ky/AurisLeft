@@ -34,7 +34,15 @@ export default function NowPlaying() {
           <h2 className="now-playing__title">{currentSong.name}</h2>
           <p className="now-playing__artist">{currentSong.artist}</p>
           <p className="now-playing__status">
-            {playbackState === 'playing' ? '正在播放' : playbackState === 'paused' ? '已暂停' : playbackState}
+            {playbackState === 'playing'
+              ? '正在播放'
+              : playbackState === 'paused'
+                ? '已暂停'
+                : playbackState === 'loading'
+                  ? '加载中…'
+                  : playbackState === 'error'
+                    ? '播放失败'
+                    : '准备中'}
           </p>
         </div>
       </div>

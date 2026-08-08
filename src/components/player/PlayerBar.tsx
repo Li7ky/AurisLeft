@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useFavoriteStore } from '../../store/favoriteStore';
+import { audioEngine } from '../../core/audioEngine';
 import { PlaybackState, Quality, RepeatMode } from '../../types';
 import { useToast } from '../common/Toast/useToast';
 import CoverImage from '../common/CoverImage';
@@ -47,31 +48,30 @@ const REPEAT_OPTIONS: {
 
 export default function PlayerBar() {
   const toast = useToast();
-  const {
-    currentSong,
-    playbackState,
-    progress,
-    duration,
-    volume,
-    shuffle,
-    repeatMode,
-    queue,
-    showLyricPanel,
-    showQueuePanel,
-    pause,
-    resume,
-    seek,
-    setVolume,
-    next,
-    prev,
-    setShuffle,
-    setRepeatMode,
-    setQuality,
-    quality,
-    play,
-    toggleLyricPanel,
-    toggleQueuePanel,
-  } = usePlayerStore();
+  // 按字段订阅，避免 4Hz 的 timeupdate 让整条播放栏无谓重渲染
+  const currentSong = usePlayerStore((s) => s.currentSong);
+  const playbackState = usePlayerStore((s) => s.playbackState);
+  const progress = usePlayerStore((s) => s.progress);
+  const duration = usePlayerStore((s) => s.duration);
+  const volume = usePlayerStore((s) => s.volume);
+  const shuffle = usePlayerStore((s) => s.shuffle);
+  const repeatMode = usePlayerStore((s) => s.repeatMode);
+  const queue = usePlayerStore((s) => s.queue);
+  const showLyricPanel = usePlayerStore((s) => s.showLyricPanel);
+  const showQueuePanel = usePlayerStore((s) => s.showQueuePanel);
+  const quality = usePlayerStore((s) => s.quality);
+  const pause = usePlayerStore((s) => s.pause);
+  const resume = usePlayerStore((s) => s.resume);
+  const seek = usePlayerStore((s) => s.seek);
+  const setVolume = usePlayerStore((s) => s.setVolume);
+  const next = usePlayerStore((s) => s.next);
+  const prev = usePlayerStore((s) => s.prev);
+  const setShuffle = usePlayerStore((s) => s.setShuffle);
+  const setRepeatMode = usePlayerStore((s) => s.setRepeatMode);
+  const setQuality = usePlayerStore((s) => s.setQuality);
+  const play = usePlayerStore((s) => s.play);
+  const toggleLyricPanel = usePlayerStore((s) => s.toggleLyricPanel);
+  const toggleQueuePanel = usePlayerStore((s) => s.toggleQueuePanel);
   const loadFavorites = useFavoriteStore((s) => s.loadFavorites);
   const toggleFavorite = useFavoriteStore((s) => s.toggle);
   const favorites = useFavoriteStore((s) => s.favorites);
@@ -84,6 +84,11 @@ export default function PlayerBar() {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [morePanel, setMorePanel] = useState<'root' | 'quality' | 'timer'>('root');
   const [timerLeft, setTimerLeft] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [dragValue, setDragValue] = useState(0);
+  const [volumeDragging, setVolumeDragging] = useState(false);
+  const [volumeDragValue, setVolumeDragValue] = useState(0);
+  const lastVolumeRef = useRef(0.8);
   const repeatMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
@@ -129,10 +134,18 @@ export default function PlayerBar() {
     return () => window.clearInterval(id);
   }, []);
 
+  // 记忆静音前的音量，取消静音时恢复而不是固定 0.8
+  useEffect(() => {
+    if (volume > 0) lastVolumeRef.current = volume;
+  }, [volume]);
+
   const isPlaying = playbackState === PlaybackState.Playing;
   const isLoading = playbackState === PlaybackState.Loading;
   const hasCurrentSong = currentSong !== null;
-  const progressPercent = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
+  // 拖拽中展示拖拽值，避免被 timeupdate 的旧 progress 覆盖导致滑块回跳
+  const displayProgress = dragging ? dragValue : progress;
+  const progressPercent =
+    duration > 0 ? Math.min(100, (displayProgress / duration) * 100) : 0;
 
   const formatTime = (seconds: number) => {
     if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -145,6 +158,28 @@ export default function PlayerBar() {
     if (!hasCurrentSong) return;
     if (isPlaying) void pause(toast.addToast);
     else void resume(toast.addToast);
+  };
+
+  const commitSeek = (value: number) => {
+    setDragging(false);
+    void seek(value, toast.addToast);
+  };
+
+  // 音量：拖动中仅本地预览，松手/失焦才经 IPC 提交并持久化，避免每帧写库
+  const commitVolume = (value: number) => {
+    setVolumeDragging(false);
+    const v = Math.min(1, Math.max(0, Number(value)));
+    void setVolume(Number.isFinite(v) ? v : volume, toast.addToast);
+  };
+
+  const toggleMute = () => {
+    if (volume === 0) {
+      const target = lastVolumeRef.current > 0 ? lastVolumeRef.current : 0.8;
+      void setVolume(target, toast.addToast);
+    } else {
+      lastVolumeRef.current = volume;
+      void setVolume(0, toast.addToast);
+    }
   };
 
   const pickRepeat = (mode: RepeatMode) => {
@@ -302,7 +337,7 @@ export default function PlayerBar() {
         </div>
 
         <div className="player-bar__progress">
-          <span className="player-bar__time">{formatTime(hasCurrentSong ? progress : 0)}</span>
+          <span className="player-bar__time">{formatTime(hasCurrentSong ? displayProgress : 0)}</span>
           <div className="player-bar__range">
             <div className="player-bar__range-bg" />
             <div
@@ -314,9 +349,19 @@ export default function PlayerBar() {
               min={0}
               max={Math.max(duration || 0, 0.1)}
               step={0.1}
-              value={hasCurrentSong ? progress : 0}
+              value={hasCurrentSong ? displayProgress : 0}
               disabled={!hasCurrentSong}
-              onChange={(e) => seek(Number(e.target.value), toast.addToast)}
+              onChange={(e) => {
+                setDragValue(Number(e.target.value));
+                setDragging(true);
+              }}
+              onPointerUp={(e) => commitSeek(Number((e.target as HTMLInputElement).value))}
+              onKeyUp={() => {
+                if (dragging) commitSeek(dragValue);
+              }}
+              onBlur={() => {
+                if (dragging) commitSeek(dragValue);
+              }}
               aria-label="播放进度"
             />
           </div>
@@ -479,20 +524,36 @@ export default function PlayerBar() {
             type="button"
             className="player-bar__icon-btn player-bar__hit"
             title={volume === 0 ? '取消静音' : '静音'}
-            onClick={() => setVolume(volume === 0 ? 0.8 : 0, toast.addToast)}
+            onClick={toggleMute}
           >
             {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
           </button>
           <div className="player-bar__range player-bar__range--volume">
             <div className="player-bar__range-bg" />
-            <div className="player-bar__range-fill" style={{ width: `${volume * 100}%` }} />
+            <div
+              className="player-bar__range-fill"
+              style={{ width: `${(volumeDragging ? volumeDragValue : volume) * 100}%` }}
+            />
             <input
               type="range"
               min={0}
               max={1}
               step={0.01}
-              value={volume}
-              onChange={(e) => setVolume(Number(e.target.value), toast.addToast)}
+              value={volumeDragging ? volumeDragValue : volume}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setVolumeDragging(true);
+                setVolumeDragValue(v);
+                // 拖动中直接改引擎音量做实时预览
+                audioEngine.setVolume(v);
+              }}
+              onPointerUp={(e) => commitVolume(Number((e.target as HTMLInputElement).value))}
+              onKeyUp={() => {
+                if (volumeDragging) commitVolume(volumeDragValue);
+              }}
+              onBlur={() => {
+                if (volumeDragging) commitVolume(volumeDragValue);
+              }}
               aria-label="音量"
             />
           </div>

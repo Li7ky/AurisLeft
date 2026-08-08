@@ -50,3 +50,7 @@ Thumbs.db
 
 # Deprecated Tauri (do not re-add)
 src-tauri/
+
+# 临时截图
+_ui_shot.png
+_user_screenshot.png

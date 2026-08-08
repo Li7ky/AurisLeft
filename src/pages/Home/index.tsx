@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -11,6 +11,7 @@ import {
   Heart,
   Sparkles,
   History,
+  Play,
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePlaylistStore } from '../../store/playlistStore';
@@ -18,56 +19,28 @@ import { useRecentStore } from '../../store/recentStore';
 import { PlaybackState, Quality } from '../../types';
 import LyricDisplay from '../../components/lyric/LyricDisplay';
 import { MediaCard } from '../../components/common/MediaCard';
-import AppLogo from '../../components/common/AppLogo';
 import CoverImage from '../../components/common/CoverImage';
 import { getNkiQqStatus } from '../../utils/desktop';
 import { useToast } from '../../components/common/Toast/useToast';
 import './index.css';
 
 const shortcuts = [
-  {
-    id: 'search',
-    title: '搜索音乐',
-    subtitle: '搜索曲库并播放',
-    path: '/search',
-    icon: Search,
-  },
-  {
-    id: 'local',
-    title: '本地音乐',
-    subtitle: '扫描并播放本地文件',
-    path: '/local',
-    icon: FileMusic,
-  },
-  {
-    id: 'favorites',
-    title: '我的收藏',
-    subtitle: '红心收藏的歌曲',
-    path: '/favorites',
-    icon: Heart,
-  },
-  {
-    id: 'playlist',
-    title: '我的歌单',
-    subtitle: '创建与管理歌单',
-    path: '/playlist',
-    icon: Library,
-  },
-  {
-    id: 'download',
-    title: '下载管理',
-    subtitle: '查看下载进度',
-    path: '/download',
-    icon: Download,
-  },
-  {
-    id: 'settings',
-    title: '设置',
-    subtitle: '音源、主题与音质',
-    path: '/settings',
-    icon: Settings,
-  },
+  { id: 'search', title: '搜索', subtitle: '曲库点歌', path: '/search', icon: Search },
+  { id: 'local', title: '本地', subtitle: '扫描文件夹', path: '/local', icon: FileMusic },
+  { id: 'favorites', title: '收藏', subtitle: '红心歌曲', path: '/favorites', icon: Heart },
+  { id: 'playlist', title: '歌单', subtitle: '整理曲目', path: '/playlist', icon: Library },
+  { id: 'download', title: '下载', subtitle: '任务进度', path: '/download', icon: Download },
+  { id: 'settings', title: '设置', subtitle: '音源主题', path: '/settings', icon: Settings },
 ];
+
+function greetingByHour() {
+  const h = new Date().getHours();
+  if (h < 6) return '夜深了';
+  if (h < 12) return '早上好';
+  if (h < 14) return '中午好';
+  if (h < 18) return '下午好';
+  return '晚上好';
+}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -76,6 +49,7 @@ export default function Home() {
   const { playlists, loadPlaylists } = usePlaylistStore();
   const queue = usePlayerStore((s) => s.queue);
   const playList = usePlayerStore((s) => s.playList);
+  const toggleLyricPanel = usePlayerStore((s) => s.toggleLyricPanel);
   const recent = useRecentStore((s) => s.recent);
   const loadRecent = useRecentStore((s) => s.loadRecent);
   const clearRecent = useRecentStore((s) => s.clearRecent);
@@ -90,6 +64,8 @@ export default function Home() {
       .catch(() => setQqReady(false));
   }, [loadPlaylists, loadRecent]);
 
+  const greeting = useMemo(() => greetingByHour(), []);
+
   const isPlayingSomething =
     currentSong &&
     (playbackState === PlaybackState.Playing ||
@@ -100,100 +76,76 @@ export default function Home() {
 
   return (
     <div className="home-page">
+      {/* 仅异常时提示，成功态不占版面 */}
       {qqReady === false && (
         <div className="home-page__banner home-page__banner--warn">
           <Sparkles size={16} />
           <div>
             <strong>QQ 解析未启用</strong>
-            <p>请到设置页开启「西瓜糖 QQ 解析」并配置密钥，否则在线取链可能失败。</p>
+            <p>到设置开启内置 QQ 解析，在线取链才稳定。</p>
           </div>
-          <button className="btn btn--primary" onClick={() => navigate('/settings')}>
+          <button type="button" className="btn btn--primary" onClick={() => navigate('/settings')}>
             去设置
           </button>
         </div>
       )}
 
-      {qqReady === true && (
-        <div className="home-page__banner">
-          <Sparkles size={16} />
-          <div>
-            <strong>西瓜糖 QQ 解析已就绪</strong>
-            <p>可直接搜索试听；付费曲优先走 QQ 解析。</p>
-          </div>
-          <button className="btn btn--primary" onClick={() => navigate('/search')}>
-            去搜索
-          </button>
+      <header className="home-page__header">
+        <div>
+          <h1 className="home-page__greeting">{greeting}</h1>
+          <p className="home-page__lede">搜索点歌，或从本地与收藏继续听</p>
         </div>
+        <button type="button" className="home-page__cta" onClick={() => navigate('/search')}>
+          <Search size={16} />
+          搜索音乐
+        </button>
+      </header>
+
+      {/* 正在播放：横向大磁贴，非再套一层 hero 卡片 */}
+      {currentSong && (
+        <button
+          type="button"
+          className="home-page__now-tile"
+          onClick={() => toggleLyricPanel()}
+          title="打开播放详情"
+        >
+          <div className="home-page__now-tile-cover">
+            <CoverImage src={currentSong.coverUrl} alt={currentSong.name} size={36} />
+          </div>
+          <div className="home-page__now-tile-meta">
+            <span className="home-page__now-tile-label">
+              {playbackState === PlaybackState.Playing ? '正在播放' : '已暂停'}
+            </span>
+            <strong className="truncate">{currentSong.name}</strong>
+            <span className="truncate">{currentSong.artist}</span>
+          </div>
+          <div className="home-page__now-tile-extra">
+            <ListMusic size={14} />
+            <span>{queue.length} 首队列</span>
+          </div>
+        </button>
       )}
-
-      <div className="home-page__hero">
-        <div className="home-page__hero-copy">
-          <div className="home-page__brand">
-            <AppLogo size={36} />
-            <p className="home-page__eyebrow">桌面音乐播放器</p>
-          </div>
-          <h1 className="home-page__heading">安静听歌，少一点打扰</h1>
-          <p className="home-page__desc">
-            已内置可用音源：搜索 → 点歌 → 收藏。本地音乐支持标签识别与队列连播。
-          </p>
-          <div className="home-page__hero-actions">
-            <button className="btn btn--primary" onClick={() => navigate('/search')}>
-              <Search size={16} />
-              去搜索
-            </button>
-            <button className="btn btn--ghost" onClick={() => navigate('/settings')}>
-              <Settings size={16} />
-              音源设置
-            </button>
-          </div>
-        </div>
-
-        <div className="home-page__now">
-          {currentSong ? (
-            <>
-              <div className="home-page__now-cover">
-                <CoverImage src={currentSong.coverUrl} alt={currentSong.name} size={36} />
-              </div>
-              <div className="home-page__now-meta">
-                <span className="home-page__now-label">
-                  {playbackState === PlaybackState.Playing ? '正在播放' : '当前曲目'}
-                </span>
-                <strong className="truncate">{currentSong.name}</strong>
-                <span className="truncate">{currentSong.artist}</span>
-                <span className="home-page__now-queue">
-                  <ListMusic size={13} /> 队列 {queue.length} 首
-                </span>
-              </div>
-            </>
-          ) : (
-            <div className="home-page__now-empty">
-              <Music2 size={28} />
-              <p>还没有在播的歌曲</p>
-              <span>从搜索、收藏或本地音乐开始</span>
-            </div>
-          )}
-        </div>
-      </div>
 
       <section className="home-page__section">
         <div className="home-page__section-head">
           <h2>快速入口</h2>
         </div>
-        <div className="home-page__shortcuts">
+        <div className="home-page__tiles">
           {shortcuts.map((item) => {
             const Icon = item.icon;
             return (
               <button
                 key={item.id}
-                className="home-page__shortcut"
+                type="button"
+                className="home-page__tile"
                 onClick={() => navigate(item.path)}
               >
-                <span className="home-page__shortcut-icon">
+                <span className="home-page__tile-icon">
                   <Icon size={18} />
                 </span>
-                <span className="home-page__shortcut-text">
+                <span className="home-page__tile-text">
                   <strong>{item.title}</strong>
-                  <span>{item.subtitle}</span>
+                  <small>{item.subtitle}</small>
                 </span>
               </button>
             );
@@ -204,85 +156,81 @@ export default function Home() {
       <section className="home-page__section">
         <div className="home-page__section-head">
           <h2>
-            <History size={16} style={{ verticalAlign: '-2px', marginRight: 6 }} />
+            <History size={18} />
             最近播放
           </h2>
           {recent.length > 0 && (
             <button
+              type="button"
               className="home-page__link"
-              onClick={() => void clearRecent().then(() => addToast('已清空最近播放', 'info'))}
+              onClick={() => {
+                void clearRecent().then(() => addToast('已清空最近播放', 'info'));
+              }}
             >
               清空
             </button>
           )}
         </div>
-        {recent.length > 0 ? (
+        {recent.length === 0 ? (
+          <div className="home-page__empty">
+            <Music2 size={28} />
+            <strong>还没有播放记录</strong>
+            <p>去搜索一首歌，或打开本地音乐开始听</p>
+            <button type="button" className="btn btn--primary" onClick={() => navigate('/search')}>
+              <Play size={14} />
+              去搜索
+            </button>
+          </div>
+        ) : (
           <div className="home-page__recent">
-            {recent.slice(0, 12).map((song, index) => (
+            {recent.slice(0, 12).map((song) => (
               <button
-                key={`${song.source}-${song.songId}-${index}`}
+                key={`${song.source}-${song.songId}`}
                 type="button"
                 className="home-page__recent-item"
-                onClick={() => void playList(recent, index, Quality.K320, addToast)}
+                onClick={() => void playList([song], 0, Quality.K320)}
               >
                 <div className="home-page__recent-cover">
-                  <CoverImage src={song.coverUrl} alt={song.name} size={18} />
+                  <CoverImage src={song.coverUrl} alt={song.name} size={20} />
                 </div>
                 <span className="truncate">{song.name}</span>
                 <small className="truncate">{song.artist}</small>
               </button>
             ))}
           </div>
-        ) : (
-          <div className="home-page__empty-card home-page__empty-card--compact">
-            <p>听过的歌会出现在这里</p>
-          </div>
         )}
       </section>
 
-      <section className="home-page__section">
-        <div className="home-page__section-head">
-          <h2>我的歌单</h2>
-          <button className="home-page__link" onClick={() => navigate('/playlist')}>
-            查看全部
-          </button>
-        </div>
-        {playlists.length > 0 ? (
+      {playlists.length > 0 && (
+        <section className="home-page__section">
+          <div className="home-page__section-head">
+            <h2>我的歌单</h2>
+            <button type="button" className="home-page__link" onClick={() => navigate('/playlist')}>
+              查看全部
+            </button>
+          </div>
           <div className="home-page__grid">
             {playlists.slice(0, 8).map((pl) => (
               <MediaCard
                 key={pl.id}
                 id={String(pl.id)}
                 title={pl.name}
-                subtitle={`${pl.songCount} 首歌曲`}
+                subtitle={`${pl.songCount} 首`}
                 onClick={() => navigate(`/playlist/${pl.id}`)}
               />
             ))}
           </div>
-        ) : (
-          <div className="home-page__empty-card">
-            <p>还没有歌单</p>
-            <button className="btn btn--primary" onClick={() => navigate('/playlist')}>
-              去创建
-            </button>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {showInlineLyric && (
         <section className="home-page__section home-page__lyric-section">
           <div className="home-page__section-head">
             <h2>歌词</h2>
-            <button
-              className="home-page__link"
-              onClick={() => usePlayerStore.getState().setShowLyricPanel(true)}
-            >
-              全屏歌词
-            </button>
           </div>
           <div className="home-page__lyric-box">
             {lyricLoading ? (
-              <div className="home-page__lyric-loading">歌词加载中…</div>
+              <div className="home-page__lyric-loading">加载歌词…</div>
             ) : (
               <LyricDisplay lines={lyricLines} mode="inline" />
             )}

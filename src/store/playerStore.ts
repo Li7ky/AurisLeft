@@ -9,6 +9,7 @@ import {
   playLocalFile as desktopPlayLocalFile,
   fetchLyric as desktopFetchLyric,
   warmSongs as desktopWarmSongs,
+  pushLyricData as desktopPushLyric,
 } from '../utils/desktop';
 import { isElectronRuntime, listen as desktopListen } from '../utils/ipc';
 import type { LyricLine, Song } from '../types';
@@ -46,7 +47,7 @@ function friendlyPlaybackMessage(message: string): string {
     return '音源仍在初始化，请稍候几秒再播放';
   }
   if (/没有已开启|未开启音源|到设置页打开/i.test(m)) {
-    return '取链失败。请确认设置里已开启「西瓜糖 QQ 解析」或至少一个洛雪音源';
+    return '取链失败。请确认设置里已开启「内置 QQ 解析」或至少一个洛雪音源';
   }
   if (/timeout|超时/i.test(m)) return '取链超时，请检查网络后重试';
   if (/vip|会员|付费|版权|受限|换源仍失败|暂时无法播放/i.test(m)) {
@@ -213,6 +214,84 @@ async function persistPlayerPrefs(partial: {
   }
 }
 
+/** 播放快照：播放中每 10s 写盘一次，切歌/暂停强制写盘，用于「启动恢复上次播放」 */
+let lastSnapshotAt = 0;
+const SNAPSHOT_INTERVAL = 10_000;
+
+async function savePlaybackSnapshot(force = false) {
+  try {
+    const { currentSong, progress, playbackState } = usePlayerStore.getState();
+    if (!currentSong || playbackState === PlaybackState.Idle) return;
+    const now = Date.now();
+    if (!force && now - lastSnapshotAt < SNAPSHOT_INTERVAL) return;
+    lastSnapshotAt = now;
+    const { useSettingsStore } = await import('./settingsStore');
+    await useSettingsStore.getState().persistPlaybackSnapshot({
+      song: currentSong,
+      progress: Number.isFinite(progress) ? progress : 0,
+      savedAt: now,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 桌面歌词：推送当前行歌词到悬浮窗（按行内容 + 播放态节流） */
+let lastLyricPushAt = 0;
+let lastLyricText = '';
+let lastLyricPlaying: boolean | null = null;
+
+function currentLyricText(progress: number): string {
+  const { lyricLines } = usePlayerStore.getState();
+  let text = '';
+  for (const line of lyricLines) {
+    if (line.time <= progress) text = line.text;
+    else break;
+  }
+  return text;
+}
+
+async function pushDesktopLyric(progress?: number) {
+  try {
+    const { useSettingsStore } = await import('./settingsStore');
+    const s = useSettingsStore.getState();
+    if (!s.desktopLyrics) return;
+    const st = usePlayerStore.getState();
+    if (!st.currentSong) return;
+
+    const p =
+      typeof progress === 'number' && Number.isFinite(progress) ? progress : st.progress;
+    const text = currentLyricText(p);
+    const playing = st.playbackState === PlaybackState.Playing;
+    const now = Date.now();
+    // 行文本与播放态都没变时，仅每秒更新一次进度条
+    if (now - lastLyricPushAt < 1000 && text === lastLyricText && playing === lastLyricPlaying) {
+      return;
+    }
+    lastLyricPushAt = now;
+    lastLyricText = text;
+    lastLyricPlaying = playing;
+
+    const duration = st.duration > 0 ? st.duration : 0;
+    const percent = duration > 0 ? Math.min(1, Math.max(0, p / duration)) : 0;
+    void desktopPushLyric({
+      text,
+      song: st.currentSong.name || '',
+      artist: st.currentSong.artist || '',
+      playing,
+      percent,
+      colors: {
+        text: s.theme.textPrimary,
+        sub: s.theme.textSecondary,
+        accent: s.theme.primary,
+        bg: s.themeMode === 'light' ? 'rgba(250,250,250,0.9)' : 'rgba(16,18,24,0.82)',
+      },
+    }).catch(() => undefined);
+  } catch {
+    /* ignore */
+  }
+}
+
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
   currentSong: null,
   queue: [],
@@ -373,10 +452,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       await audioEngine.play(url);
       if (token !== playRequestToken) return;
 
-      audioEngine.setVolume(get().volume);
       failedAutoSkipSongKeys.clear();
       set({ playbackState: PlaybackState.Playing });
       updateMediaSession(get().currentSong || song, true);
+      void pushDesktopLyric();
+      void savePlaybackSnapshot(true);
 
       // 预热队列里接下来 2 首 → 切歌也尽量秒开
       try {
@@ -416,10 +496,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   pause: async (toast?: ToastFn) => {
     try {
-      audioEngine.pause();
-      void desktopPausePlayback().catch(() => undefined);
-      set({ playbackState: PlaybackState.Paused });
+      const { useSettingsStore } = await import('./settingsStore');
+      const fadeSwitch = useSettingsStore.getState().fadeSwitch;
+      if (fadeSwitch !== false && !fadingOut && get().playbackState === PlaybackState.Playing) {
+        await get().fadeOutAndPause();
+      } else {
+        audioEngine.pause();
+        void desktopPausePlayback().catch(() => undefined);
+        set({ playbackState: PlaybackState.Paused });
+      }
       updateMediaSession(get().currentSong, false);
+      void pushDesktopLyric();
+      void savePlaybackSnapshot(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ error: message });
@@ -430,14 +518,21 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   resume: async (toast?: ToastFn) => {
     const { currentSong, playbackState } = get();
     try {
-      if (playbackState === PlaybackState.Idle && currentSong) {
+      // Idle / Error 态没有可用的播放源，直接重新取链播放，避免无声却显示播放中
+      if (
+        (playbackState === PlaybackState.Idle || playbackState === PlaybackState.Error) &&
+        currentSong
+      ) {
         await get().play(currentSong, get().quality, toast, false);
         return;
       }
       await audioEngine.resume();
+      audioEngine.fadeInTo(get().volume);
       void desktopResumePlayback().catch(() => undefined);
       set({ playbackState: PlaybackState.Playing });
       updateMediaSession(currentSong, true);
+      void pushDesktopLyric();
+      void savePlaybackSnapshot(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ error: message });
@@ -459,6 +554,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         lyricLines: [],
       });
       updateMediaSession(null, false);
+      try {
+        const { useSettingsStore } = await import('./settingsStore');
+        await useSettingsStore.getState().clearPlaybackSnapshot();
+      } catch {
+        /* ignore */
+      }
     } catch {
       set({ playbackState: PlaybackState.Error });
     }
@@ -494,6 +595,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     try {
       const { queue, currentIndex, quality, repeatMode, shuffle } = get();
       if (queue.length === 0) return;
+
+      // 单曲队列：手动切歌没有其它候选，直接重播当前曲，
+      // 避免 next 直接 Idle、或 shuffle 时 candidates 为空误报 Error
+      if (queue.length === 1) {
+        await get().play(queue[0], quality, toast, true);
+        return;
+      }
 
       const hasFailedSkips = failedAutoSkipSongKeys.size > 0;
       let nextIndex: number;
@@ -654,11 +762,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       if (wasPlaying) {
         await get().play(nextSong, quality, undefined, true);
       } else {
-        // Not actively playing — just update selection without starting
+        // Not actively playing — stop the stale audio and reset to the next song.
+        // Without this, the old src stays loaded and resume() would play the removed song.
+        try {
+          audioEngine.stopForSwitch();
+        } catch {
+          /* ignore */
+        }
         set({
           progress: 0,
           duration: nextSong.duration || 0,
           lyricLines: [],
+          playbackState: PlaybackState.Idle,
         });
         void get().loadLyrics(nextSong);
       }
@@ -683,6 +798,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   updateProgress: (progress: number, duration: number) => {
     set({ progress, duration: duration > 0 ? duration : get().duration });
+    void savePlaybackSnapshot(); // 播放中每 10s 防抖写盘
+    void pushDesktopLyric(progress); // 桌面歌词进度/换行推送
   },
 
   setPlaybackState: (state: PlaybackState) => {
@@ -795,9 +912,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       const lyric = await desktopFetchLyric(song.songId, song.source);
       if (token !== lyricRequestToken) return;
       set({ lyricLines: lyric.lines ?? [], lyricLoading: false });
+      void pushDesktopLyric();
     } catch {
       if (token !== lyricRequestToken) return;
       set({ lyricLines: [], lyricLoading: false });
+      void pushDesktopLyric();
     }
   },
 
@@ -814,13 +933,16 @@ interface UnlistenFn {
 }
 
 let eventUnlisteners: UnlistenFn[] = [];
-let subscribing = false;
 
 export function subscribePlayerEvents(): Promise<() => void> {
-  if (subscribing || eventUnlisteners.length > 0) {
-    return Promise.resolve(() => {});
+  // 已订阅：返回真正能退订的清理函数，而不是空函数，
+  // 避免并发调用方拿到「假订阅」后既收不到事件也无法退订
+  if (eventUnlisteners.length > 0) {
+    return Promise.resolve(() => {
+      eventUnlisteners.forEach((fn) => fn());
+      eventUnlisteners = [];
+    });
   }
-  subscribing = true;
   bindMediaSessionHandlers();
 
   const unlistens: UnlistenFn[] = [];
@@ -857,10 +979,8 @@ export function subscribePlayerEvents(): Promise<() => void> {
   );
 
   eventUnlisteners = unlistens;
-  subscribing = false;
   return Promise.resolve(() => {
     eventUnlisteners.forEach((fn) => fn());
     eventUnlisteners = [];
-    subscribing = false;
   });
 }

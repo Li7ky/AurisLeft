@@ -42,10 +42,12 @@ export default function AddToPlaylistDialog({ song, open, onClose }: Props) {
 
   const handleCreateAndAdd = async () => {
     const name = newName.trim() || `${song.name} 相关`;
-    await createPlaylist(name, addToast);
+    // 创建失败会弹错误 toast，这里中止，绝不回退加到别的歌单
+    const ok = await createPlaylist(name, addToast);
+    if (!ok) return;
     await loadPlaylists();
     const list = usePlaylistStore.getState().playlists;
-    const created = list.find((p) => p.name === name) || list[0];
+    const created = list.find((p) => p.name === name);
     if (created) {
       await addSong(created.id, song, addToast);
     }

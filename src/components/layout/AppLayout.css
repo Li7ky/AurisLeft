@@ -1,3 +1,10 @@
+/* ═══════════════════════════════════════════
+   一体式布局（Spotify / 网易云桌面范式）
+   侧栏 | 主内容
+   ─────────── 通栏底栏 ───────────
+   禁止：主区再套圆角卡片壳、侧栏悬浮浮层
+   ═══════════════════════════════════════════ */
+
 .app-container {
   display: flex;
   flex-direction: column;
@@ -7,8 +14,55 @@
   color: var(--text-base);
   overflow: hidden;
   position: relative;
-  border: 1px solid color-mix(in srgb, var(--decorative-border-light) 80%, transparent);
   box-sizing: border-box;
+}
+
+/* 主区顶部氛围：随主题主色轻微染色，浅色模式下更克制 */
+.app-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  height: 280px;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-primary) 8%, transparent) 0%,
+    transparent 100%
+  );
+  opacity: 0.7;
+}
+
+[data-theme='light'] .app-container::before {
+  opacity: 0.45;
+}
+
+/* 普通子层参与 flex；覆盖层单独 absolute，禁止被 > * 覆盖掉 position */
+.app-container > .top-bar,
+.app-container > .app-body,
+.app-container > .player-bar {
+  position: relative;
+  z-index: 1;
+}
+
+.app-container > .player-bar {
+  z-index: var(--z-player);
+}
+
+/* 全屏播放 / 队列：盖住主区，但不把播放条顶到中间 */
+.app-container > .now-playing {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--player-bar-height);
+  z-index: calc(var(--z-player) + 2);
+}
+
+.app-container > .queue-panel {
+  z-index: calc(var(--z-player) + 1);
 }
 
 .app-body {
@@ -16,7 +70,6 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0 0 0 0;
 }
 
 .app-main {
@@ -26,27 +79,31 @@
   overflow-x: hidden;
   position: relative;
   scroll-behavior: smooth;
-  background: var(--bg-base);
-  border-left: 1px solid var(--decorative-border);
+  background: transparent;
+  /* 无边框、无圆角壳 —— 内容直接落在画布上 */
+  border: none;
+  border-radius: 0;
+  margin: 0;
 }
 
-/* ── Top bar (兼作无边框窗口标题栏) ── */
+/* ── Top bar：搜索居中，与内容同色带 ── */
 .top-bar {
   height: var(--top-bar-height);
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 0 0 12px;
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--decorative-border);
+  padding: 0 0 0 16px;
+  background: color-mix(in srgb, var(--bg-base) 88%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid transparent;
   z-index: var(--z-topbar);
   gap: 12px;
   position: relative;
   flex-shrink: 0;
 }
 
-/* 整条顶栏可拖动窗口 */
 .top-bar__drag {
   position: absolute;
   inset: 0;
@@ -79,6 +136,8 @@
   min-width: 0;
   flex: 1;
   padding-right: 8px;
+  /* 与侧栏宽度对齐，搜索落在主区中心感 */
+  padding-left: 4px;
 }
 
 .top-bar__logo {
@@ -88,63 +147,95 @@
   cursor: pointer;
   flex-shrink: 0;
   user-select: none;
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  width: calc(var(--sidebar-width) - 24px);
+  max-width: calc(var(--sidebar-width) - 24px);
+  transition: opacity var(--transition-fast);
 }
 
 .top-bar__logo:hover {
-  opacity: 0.92;
-  transform: translateY(-0.5px);
+  opacity: 0.88;
 }
 
 .top-bar__logo .app-logo__mark {
-  border-radius: 9px;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-primary) 28%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-primary) 28%, transparent);
   flex-shrink: 0;
 }
 
 .top-bar__logo-text {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(120deg, var(--text-base) 20%, var(--accent-primary) 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-base);
+  background: none;
+  -webkit-text-fill-color: unset;
+  /* 窄侧栏下避免撑破 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .top-bar__nav-controls {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.top-bar__nav-controls .btn--icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-tinted);
+  color: var(--text-subdued);
+}
+
+.top-bar__nav-controls .btn--icon:hover {
+  background: var(--bg-tinted-strong);
+  color: var(--text-base);
+  transform: none;
 }
 
 .top-bar__search {
   position: relative;
-  width: min(420px, 42vw);
-  flex: 1;
+  width: min(420px, 40vw);
+  flex: 0 1 420px;
   max-width: 420px;
+  margin: 0 auto;
 }
 
 .top-bar__search-icon {
   position: absolute;
-  left: 12px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-subdued);
   pointer-events: none;
 }
 
+.top-bar__search:focus-within .top-bar__search-icon {
+  color: var(--text-base);
+}
+
 .top-bar__search-input {
   width: 100%;
-  padding-left: 36px !important;
+  padding-left: 42px !important;
+  padding-right: 16px !important;
   background: var(--bg-tinted) !important;
-  border-color: transparent !important;
-  height: 34px;
+  border: none !important;
+  border-radius: var(--radius-pill) !important;
+  height: 40px;
+  box-shadow: none !important;
+  font-size: 14px !important;
+  color: var(--text-base) !important;
 }
 
 .top-bar__search-input:focus {
-  background: var(--bg-highlight) !important;
-  border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent) !important;
+  background: var(--bg-tinted-strong) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text-base) 12%, transparent) !important;
 }
 
 .top-bar__right {
@@ -153,14 +244,15 @@
   gap: 4px;
   flex-shrink: 0;
   height: 100%;
-  padding-right: 0;
+  min-width: 140px;
+  justify-content: flex-end;
 }
 
 .top-bar__win-controls {
   display: flex;
   align-items: stretch;
   height: 100%;
-  margin-left: 6px;
+  margin-left: 8px;
 }
 
 .top-bar__win-btn {
@@ -188,24 +280,42 @@
   color: #fff;
 }
 
-/* ── Sidebar ── */
+/* ── Sidebar：窄栏、与主区同色系 ── */
 .sidebar {
   width: var(--sidebar-width);
   height: 100%;
-  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
-  padding: 8px 10px 14px;
+  padding: 6px 8px 10px;
   z-index: var(--z-sidebar);
-  gap: 4px;
+  gap: 1px;
+  border: none;
+  border-right: 1px solid var(--decorative-hairline);
+  border-radius: 0;
+  box-shadow: none;
+  flex-shrink: 0;
+  margin: 0;
+  box-sizing: border-box;
+  backdrop-filter: none;
 }
 
 .sidebar__brand-space {
-  height: 4px;
+  display: none;
+}
+
+/* 侧栏底部版本号：弱化、不占导航位 */
+.sidebar__version {
+  padding: 6px 12px 4px;
+  font-size: 10.5px;
+  color: var(--text-subdued);
+  user-select: none;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
 
 .sidebar__section {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .sidebar__section--grow {
@@ -217,26 +327,27 @@
 }
 
 .sidebar__title {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-subdued);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 8px 12px 6px;
+  padding: 6px 10px 5px;
 }
 
 .sidebar__nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
-  border-radius: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   text-decoration: none;
   font-weight: 500;
-  font-size: 13.5px;
-  transition: all var(--transition-fast);
-  margin-bottom: 2px;
+  font-size: 13px;
+  transition: background 0.12s ease, color 0.12s ease;
+  margin-bottom: 1px;
+  border: none;
 }
 
 .sidebar__nav-item:hover {
@@ -245,14 +356,20 @@
 }
 
 .sidebar__nav-item--active {
-  background: var(--accent-primary-dim);
-  color: var(--accent-primary);
+  background: var(--bg-tinted-strong);
+  color: var(--text-base);
   font-weight: 700;
+  border: none;
+  box-shadow: none;
+}
+
+.sidebar__nav-item--active .sidebar__nav-icon {
+  color: var(--accent-primary);
 }
 
 .sidebar__nav-icon {
   flex-shrink: 0;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 .sidebar__playlist-header {
@@ -264,8 +381,9 @@
 }
 
 .sidebar__add-btn {
-  width: 26px !important;
-  height: 26px !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
 }
 
 .sidebar__playlist-nav {
@@ -277,11 +395,17 @@
 
 .sidebar__count {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-subdued);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  background: none;
+  min-width: auto;
+  height: auto;
+  padding: 0;
 }
 
 .sidebar__nav-item--active .sidebar__count {
-  color: var(--accent-primary);
+  color: var(--text-secondary);
+  background: none;
 }

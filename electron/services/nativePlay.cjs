@@ -111,9 +111,8 @@ async function resolveKuwo(songId, quality = '320k') {
       : '320kmp3';
 
   const endpoints = [
-    `http://antiserver.kuwo.cn/anti.s?type=convert_url3&rid=${rid}&format=mp3&response=url&br=${br}`,
     `https://antiserver.kuwo.cn/anti.s?type=convert_url3&rid=${rid}&format=mp3&response=url&br=${br}`,
-    `http://antiserver.kuwo.cn/anti.s?type=convert_url3&rid=MUSIC_${rid}&format=mp3&response=url&br=${br}`,
+    `https://antiserver.kuwo.cn/anti.s?type=convert_url3&rid=MUSIC_${rid}&format=mp3&response=url&br=${br}`,
     `https://mobi.kuwo.cn/mobi.s?f=web&type=convert_url_with_sign&rid=${rid}&br=${br}`,
   ];
 
@@ -160,7 +159,7 @@ async function resolveKugou(songId, hash) {
 
   const endpoints = [
     `https://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=${h}`,
-    `http://trackercdn.kugou.com/i/v2/?cmd=23&hash=${h}&key=${h}&pid=1&behavior=play&appid=1001`,
+    `https://trackercdn.kugou.com/i/v2/?cmd=23&hash=${h}&key=${h}&pid=1&behavior=play&appid=1001`,
   ];
 
   for (const ep of endpoints) {
