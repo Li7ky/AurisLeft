@@ -2,8 +2,8 @@
   "name": "aurisleft",
   "private": true,
   "version": "1.0.0",
-  "description": "AurisLeft desktop music player (Electron)",
-  "author": "AurisLeft Contributors",
+  "description": "左耳 desktop music player (Electron)",
+  "author": "左耳 Contributors",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -20,14 +20,7 @@
     "release": "npm run dist"
   },
   "dependencies": {
-    "lucide-react": "^1.14.0",
-    "music-metadata": "^11.13.0",
-    "react": "^19.1.0",
-    "react-dnd": "^16.0.1",
-    "react-dnd-html5-backend": "^16.0.1",
-    "react-dom": "^19.1.0",
-    "react-router-dom": "^7.14.2",
-    "zustand": "^5.0.12"
+    "music-metadata": "^11.13.0"
   },
   "devDependencies": {
     "@types/react": "^19.1.8",
@@ -37,14 +30,21 @@
     "cross-env": "^7.0.3",
     "electron": "^35.1.2",
     "electron-builder": "^25.1.8",
+    "lucide-react": "^1.14.0",
     "prettier": "^3.8.3",
+    "react": "^19.1.0",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.14.2",
     "typescript": "~5.8.3",
     "vite": "^7.0.4",
-    "wait-on": "^8.0.3"
+    "wait-on": "^8.0.3",
+    "zustand": "^5.0.12"
   },
   "build": {
     "appId": "com.aurisleft.desktop",
-    "productName": "AurisLeft",
+    "productName": "左耳",
     "directories": {
       "output": "release"
     },

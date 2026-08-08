@@ -95,11 +95,29 @@ export interface PlayerSettings {
   volume: number;
   shuffle: boolean;
   repeatMode: RepeatMode;
+  /** 开机自启 */
+  autoLaunch?: boolean;
+  /** 启动后恢复上次播放 */
+  restorePlayback?: boolean;
+  /** 播放淡入淡出 */
+  fadeSwitch?: boolean;
+  /** 上次播放快照（歌曲 + 进度），用于恢复播放 */
+  lastPlayback?: {
+    song: unknown;
+    progress: number;
+    savedAt: number;
+  } | null;
 }
+
+export type ThemeMode = 'manual' | 'light' | 'dark' | 'system';
 
 export interface AppearanceSettings {
   theme: ThemeConfig;
   showLyric: boolean;
+  /** 主题深浅：跟随预设 / 强制亮 / 强制暗 / 跟随系统 */
+  themeMode?: ThemeMode;
+  /** 桌面歌词窗 */
+  desktopLyrics?: boolean;
 }
 
 export interface SourceSettings {

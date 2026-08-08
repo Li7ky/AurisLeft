@@ -1,22 +1,42 @@
 .now-playing {
-  position: absolute;
-  inset: 0;
-  z-index: calc(var(--z-player) + 2);
+  /* 定位由 AppLayout 统一约束：盖住顶栏+主区，底栏露出 */
   display: grid;
-  grid-template-columns: minmax(280px, 38%) 1fr;
-  gap: 32px;
-  padding: 48px 48px 24px;
+  grid-template-columns: minmax(280px, 40%) 1fr;
+  gap: 48px;
+  padding: 48px 48px 28px;
+  border-radius: 0;
+  border: none;
   background:
-    radial-gradient(ellipse at 20% 0%, color-mix(in srgb, var(--accent-primary) 18%, transparent), transparent 55%),
-    linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-base) 100%);
+    radial-gradient(
+      ellipse 80% 60% at 20% 0%,
+      color-mix(in srgb, var(--accent-primary) 22%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-elevated) 100%, transparent) 0%,
+      var(--bg-base) 72%
+    );
+  backdrop-filter: none;
+  box-shadow: none;
   animation: fadeIn 0.25s ease;
+  overflow: hidden;
 }
 
 .now-playing__close {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 20px;
+  right: 20px;
   z-index: 2;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  background: var(--bg-tinted) !important;
+  border: none !important;
+}
+
+.now-playing__close:hover {
+  background: var(--bg-tinted-strong) !important;
 }
 
 .now-playing__art {
@@ -24,49 +44,65 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 28px;
   min-width: 0;
 }
 
 .now-playing__art-frame {
-  width: min(320px, 80%);
+  width: min(360px, 85%);
   aspect-ratio: 1;
-  border-radius: var(--radius-xl);
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: var(--shadow-xl);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  transition: transform 0.35s ease;
+}
+
+.now-playing__art-frame:hover {
+  transform: scale(1.02);
+  border-radius: 8px;
 }
 
 .now-playing__meta {
   text-align: center;
-  max-width: 360px;
+  max-width: 380px;
 }
 
 .now-playing__title {
   margin: 0 0 8px;
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
+  font-size: clamp(1.4rem, 2.5vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .now-playing__artist {
-  margin: 0 0 6px;
+  margin: 0 0 10px;
   color: var(--text-secondary);
-  font-size: var(--font-size-md);
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .now-playing__status {
   margin: 0;
-  font-size: var(--font-size-xs);
+  display: inline-block;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  font-size: 12px;
   color: var(--accent-primary);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  background: none;
 }
 
 .now-playing__lyrics {
   min-width: 0;
   height: 100%;
   overflow: hidden;
-  border-left: 1px solid var(--decorative-border);
-  padding-left: 24px;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  padding-left: 40px;
+  background: none;
+  border-radius: 0;
 }
 
 .now-playing__lyric-loading {
@@ -80,14 +116,19 @@
 @media (max-width: 960px) {
   .now-playing {
     grid-template-columns: 1fr;
-    padding: 40px 20px 16px;
+    padding: 48px 20px 20px;
+    gap: 20px;
+  }
+
+  .now-playing__art-frame {
+    width: min(260px, 70%);
   }
 
   .now-playing__lyrics {
     border-left: none;
     padding-left: 0;
-    border-top: 1px solid var(--decorative-border);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
     padding-top: 16px;
-    min-height: 240px;
+    min-height: 220px;
   }
 }

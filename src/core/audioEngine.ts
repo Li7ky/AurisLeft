@@ -13,6 +13,8 @@ class AudioEngine {
   private playToken = 0;
   /** When true, the current play() call owns error reporting */
   private playPromiseActive = false;
+  /** 淡入/淡出串台保护：每次调用自增，旧动画自动作废 */
+  private fadeToken = 0;
 
   private constructor() {
     this.audio = new Audio();
@@ -193,6 +195,9 @@ class AudioEngine {
         }
         throw new Error(message.replace(/https?:\/\/\S+/g, '').trim() || '播放失败');
       }
+
+      // 播放成功：淡入到目标音量（fadeSwitch 关闭时直接设为目标）
+      this.fadeInTo(usePlayerStore.getState().volume);
     } finally {
       if (token === this.playToken) {
         this.playPromiseActive = false;
@@ -243,6 +248,35 @@ class AudioEngine {
     }
     this.audio.pause();
     this.audio.volume = Math.min(1, Math.max(0, restoreVolume));
+  }
+
+  private fadeSwitchEnabled(): boolean {
+    try {
+      return useSettingsStore.getState().fadeSwitch !== false;
+    } catch {
+      return false;
+    }
+  }
+
+  /** 播放淡入：从静音缓升到目标音量；fadeSwitch 关闭时直接设为目标音量 */
+  public fadeInTo(target: number, durationMs = 400) {
+    const v = Math.min(1, Math.max(0, target));
+    if (!this.fadeSwitchEnabled()) {
+      this.audio.volume = v;
+      return;
+    }
+    const token = ++this.fadeToken;
+    this.audio.volume = 0.001;
+    const start = Date.now();
+    const step = () => {
+      if (token !== this.fadeToken) return;
+      const t = Math.min(1, (Date.now() - start) / durationMs);
+      // 每帧读最新目标音量，避免淡入过程中拖音量条被回弹
+      const targetNow = Math.min(1, Math.max(0, usePlayerStore.getState().volume));
+      this.audio.volume = Math.max(0, Math.min(1, targetNow * t));
+      if (t < 1) requestAnimationFrame(step);
+    };
+    step();
   }
 
   public get currentSrc() {

@@ -6,7 +6,7 @@ import { DownloadStatus } from '../types';
 
 interface DownloadState {
   tasks: DownloadTask[];
-  addTask: (song: Song, quality: Quality) => Promise<void>;
+  addTask: (song: Song, quality: Quality) => Promise<boolean>;
   updateTask: (taskId: string, progress: number, status: DownloadStatus, error?: string) => void;
   clearCompleted: () => void;
 }
@@ -24,7 +24,7 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
 
     const existing = get().tasks.find((t) => t.url === taskId);
     if (existing && existing.status === DownloadStatus.Downloading) {
-      return;
+      return true;
     }
 
     set((state) => ({
@@ -42,6 +42,7 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
     try {
       await downloadSong(song, quality);
       get().updateTask(taskId, 100, DownloadStatus.Completed);
+      return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set((state) => ({
@@ -49,6 +50,7 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
           t.url === taskId ? { ...t, status: DownloadStatus.Failed, error: message } : t
         ),
       }));
+      return false;
     }
   },
 
@@ -61,10 +63,9 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
   },
 
   clearCompleted: () => {
+    // 清理「已结束」的任务（成功 + 失败）；进行中的保留
     set((state) => ({
-      tasks: state.tasks.filter(
-        (t) => t.status !== DownloadStatus.Completed && t.status !== DownloadStatus.Failed
-      ),
+      tasks: state.tasks.filter((t) => t.status === DownloadStatus.Downloading),
     }));
   },
 }));

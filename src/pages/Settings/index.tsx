@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useToast } from '../../components/common/Toast/useToast';
 import { Quality } from '../../types';
-import type { ThemeConfig } from '../../types';
+import type { ThemeConfig, ThemeMode } from '../../types';
+import AppLogo from '../../components/common/AppLogo';
 import {
   exportBackup,
   importBackup,
@@ -13,6 +14,10 @@ import {
   getNkiQqStatus,
   setNkiQqKey,
   setNkiQqEnabled,
+  clearAppCache,
+  getDownloadDir,
+  setDownloadDir,
+  selectDirectory,
   type UpdateCheckResult,
   type NkiQqStatus,
 } from '../../utils/desktop';
@@ -24,11 +29,11 @@ const PRESET_THEMES: { name: string; mode: '暗色' | '明亮'; theme: ThemeConf
     mode: '暗色',
     theme: {
       primary: '#e8a54b',
-      background: '#0c0e12',
-      surface: '#141820',
-      textPrimary: '#f3f1ec',
-      textSecondary: '#8a8794',
-      accent: '#9b8cff',
+      background: '#0a0c10',
+      surface: '#12161e',
+      textPrimary: '#f4f2ed',
+      textSecondary: '#7e7b88',
+      accent: '#a594ff',
     },
   },
   {
@@ -59,26 +64,45 @@ const PRESET_THEMES: { name: string; mode: '暗色' | '明亮'; theme: ThemeConf
     name: '晨光绿',
     mode: '明亮',
     theme: {
-      primary: '#16a34a',
-      background: '#f8fafc',
+      primary: '#0d9488',
+      background: '#f3f5f7',
       surface: '#ffffff',
-      textPrimary: '#111827',
-      textSecondary: '#64748b',
-      accent: '#22c55e',
+      textPrimary: '#134e4a',
+      textSecondary: '#5b6b6a',
+      accent: '#14b8a6',
     },
   },
   {
     name: '晴空蓝',
     mode: '明亮',
     theme: {
-      primary: '#2563eb',
-      background: '#f4f7fb',
+      primary: '#3b82f6',
+      background: '#f3f5f9',
       surface: '#ffffff',
-      textPrimary: '#172033',
-      textSecondary: '#667085',
-      accent: '#38bdf8',
+      textPrimary: '#1e293b',
+      textSecondary: '#64748b',
+      accent: '#60a5fa',
     },
   },
+  {
+    name: '暖纸白',
+    mode: '明亮',
+    theme: {
+      primary: '#d97706',
+      background: '#f6f4f1',
+      surface: '#ffffff',
+      textPrimary: '#1c1917',
+      textSecondary: '#78716c',
+      accent: '#f59e0b',
+    },
+  },
+];
+
+const THEME_MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: 'manual', label: '跟随预设' },
+  { value: 'light', label: '强制明亮' },
+  { value: 'dark', label: '强制暗色' },
+  { value: 'system', label: '跟随系统' },
 ];
 
 function isSameTheme(a: ThemeConfig, b: ThemeConfig) {
@@ -93,8 +117,19 @@ function isSameTheme(a: ThemeConfig, b: ThemeConfig) {
 }
 
 export default function Settings() {
-  const { theme, defaultQuality, autoPlayNext, showLyric, setTheme, setSetting } =
-    useSettingsStore();
+  const {
+    theme,
+    defaultQuality,
+    autoPlayNext,
+    showLyric,
+    themeMode,
+    autoLaunch,
+    restorePlayback,
+    fadeSwitch,
+    desktopLyrics,
+    setTheme,
+    setSetting,
+  } = useSettingsStore();
   const { addToast } = useToast();
 
   const [customColor, setCustomColor] = useState(theme.primary);
@@ -105,6 +140,9 @@ export default function Settings() {
   const [nkiStatus, setNkiStatus] = useState<NkiQqStatus | null>(null);
   const [nkiKeyInput, setNkiKeyInput] = useState('');
   const [nkiBusy, setNkiBusy] = useState(false);
+  const [downloadDir, setDownloadDirState] = useState('');
+  const [cacheBusy, setCacheBusy] = useState(false);
+  const [dirBusy, setDirBusy] = useState(false);
 
   useEffect(() => {
     setCustomColor(theme.primary);
@@ -116,6 +154,9 @@ export default function Settings() {
       .catch(() => setAppVersion('1.0.0'));
     getNkiQqStatus()
       .then(setNkiStatus)
+      .catch(() => undefined);
+    getDownloadDir()
+      .then((dir) => setDownloadDirState(dir))
       .catch(() => undefined);
   }, []);
 
@@ -129,6 +170,14 @@ export default function Settings() {
 
   const handleShowLyricChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSetting('showLyric', e.target.checked);
+  };
+
+  const handleToggleSetting = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    void setSetting(key, e.target.checked);
+  };
+
+  const handleThemeModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    void setSetting('themeMode', e.target.value as ThemeMode);
   };
 
   const applyPresetTheme = (presetTheme: ThemeConfig) => {
@@ -197,7 +246,7 @@ export default function Settings() {
       const s = await getNkiQqStatus();
       setNkiStatus(s);
       setNkiKeyInput('');
-      addToast(s.hasKey ? 'QQ 解析密钥已保存' : '密钥已清空', 'success');
+      addToast(s.hasKey ? '解析密钥已保存' : '密钥已清空', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       addToast(`保存失败：${message}`, 'error');
@@ -213,12 +262,44 @@ export default function Settings() {
       const next = !nkiStatus.enabled;
       await setNkiQqEnabled(next);
       setNkiStatus(await getNkiQqStatus());
-      addToast(next ? '已开启西瓜糖 QQ 解析' : '已关闭西瓜糖 QQ 解析', 'success');
+      addToast(next ? '已开启内置 QQ 解析' : '已关闭内置 QQ 解析', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       addToast(`切换失败：${message}`, 'error');
     } finally {
       setNkiBusy(false);
+    }
+  };
+
+  const handleClearCache = async () => {
+    setCacheBusy(true);
+    try {
+      await clearAppCache();
+      addToast('缓存已清除', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addToast(`清除缓存失败：${message}`, 'error');
+    } finally {
+      setCacheBusy(false);
+    }
+  };
+
+  const handlePickDownloadDir = async () => {
+    setDirBusy(true);
+    try {
+      const dir = await selectDirectory();
+      if (!dir) {
+        addToast('已取消选择', 'info');
+        return;
+      }
+      await setDownloadDir(dir);
+      setDownloadDirState(dir);
+      addToast('下载目录已更新', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addToast(`设置失败：${message}`, 'error');
+    } finally {
+      setDirBusy(false);
     }
   };
 
@@ -256,13 +337,13 @@ export default function Settings() {
         <div className="settings-group-card__body">
           <div className="settings-source-section">
             <div className="settings-source-section__title">
-              西瓜糖 QQ 解析
+              内置 QQ 解析
               <span className="settings-source-section__badge">
-                {nkiReady ? `已启用 · ${nkiStatus?.keyHint || ''}` : nkiStatus?.hasKey ? '已关' : '未配置'}
+                {nkiReady ? '已启用' : nkiStatus?.hasKey ? '待开启' : '未配置'}
               </span>
             </div>
             <div className="settings-note">
-              使用 api.nki.pw 解析 QQ 音乐直链，付费曲优先走这里。曲库搜索仍用公开接口。
+              内置解析服务，付费曲优先走这里。曲库搜索仍用公开接口。
             </div>
             <div className="settings-row settings-row--with-control" style={{ marginTop: 12 }}>
               <span className="settings-row__label">启用 QQ 解析</span>
@@ -279,14 +360,14 @@ export default function Settings() {
               </button>
             </div>
             <div className="settings-note" style={{ marginTop: 10 }}>
-              API Key（当前不显示完整密钥；输入新密钥可覆盖）
+              解析密钥（选填）：填写可提升解析稳定性；留空使用内置配置。
             </div>
             <div className="settings-row settings-row--with-control" style={{ gap: 8, marginTop: 6 }}>
               <input
                 type="password"
                 className="settings-select"
                 style={{ flex: 1, minWidth: 0 }}
-                placeholder={nkiStatus?.hasKey ? '已保存，输入新密钥可覆盖' : '粘贴 apikey'}
+                placeholder={nkiStatus?.hasKey ? '已保存，输入新密钥可覆盖' : '粘贴密钥'}
                 value={nkiKeyInput}
                 onChange={(e) => setNkiKeyInput(e.target.value)}
                 autoComplete="off"
@@ -340,6 +421,45 @@ export default function Settings() {
               className="settings-switch"
             />
           </label>
+          <label className="settings-row settings-row--with-control">
+            <span className="settings-row__label">播放淡入淡出</span>
+            <input
+              type="checkbox"
+              checked={fadeSwitch}
+              onChange={handleToggleSetting('fadeSwitch')}
+              className="settings-switch"
+            />
+          </label>
+          <div className="settings-note">播放 / 暂停 / 切歌时音量平滑过渡，更自然。</div>
+          <label className="settings-row settings-row--with-control">
+            <span className="settings-row__label">启动恢复上次播放</span>
+            <input
+              type="checkbox"
+              checked={restorePlayback}
+              onChange={handleToggleSetting('restorePlayback')}
+              className="settings-switch"
+            />
+          </label>
+          <div className="settings-note">下次打开应用时，自动继续上次的歌曲与进度。</div>
+          <label className="settings-row settings-row--with-control">
+            <span className="settings-row__label">开机自启动</span>
+            <input
+              type="checkbox"
+              checked={autoLaunch}
+              onChange={handleToggleSetting('autoLaunch')}
+              className="settings-switch"
+            />
+          </label>
+          <label className="settings-row settings-row--with-control">
+            <span className="settings-row__label">桌面歌词</span>
+            <input
+              type="checkbox"
+              checked={desktopLyrics}
+              onChange={handleToggleSetting('desktopLyrics')}
+              className="settings-switch"
+            />
+          </label>
+          <div className="settings-note">开启后在桌面显示可置顶的悬浮歌词窗口。</div>
         </div>
       </section>
 
@@ -348,7 +468,22 @@ export default function Settings() {
           <h3 className="settings-group-card__title">外观设置</h3>
         </div>
         <div className="settings-group-card__body">
-          <div className="settings-note">预设主题（暗色 / 明亮）</div>
+          <label className="settings-row settings-row--with-control">
+            <span className="settings-row__label">外观模式</span>
+            <select
+              value={themeMode}
+              onChange={handleThemeModeChange}
+              className="settings-select"
+            >
+              {THEME_MODE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="settings-note">「跟随系统」会自动切换明暗，需配合下方预设主题使用。</div>
+          <div className="settings-note">预设主题</div>
           <div className="settings-theme-grid">
             {PRESET_THEMES.map((preset) => (
               <button
@@ -387,7 +522,35 @@ export default function Settings() {
           <h3 className="settings-group-card__title">数据与诊断</h3>
         </div>
         <div className="settings-group-card__body">
+          <label className="settings-row settings-row--with-control">
+            <span className="settings-row__label">下载目录</span>
+            <button
+              type="button"
+              className="settings-btn"
+              disabled={dirBusy}
+              onClick={() => void handlePickDownloadDir()}
+            >
+              选择…
+            </button>
+          </label>
+          <div className="settings-note settings-note--path" title={downloadDir}>
+            {downloadDir || '使用系统默认下载目录'}
+          </div>
+          <div className="settings-row settings-row--with-control">
+            <span className="settings-row__label">清除缓存</span>
+            <button
+              type="button"
+              className="settings-btn"
+              disabled={cacheBusy}
+              onClick={() => void handleClearCache()}
+            >
+              清除
+            </button>
+          </div>
           <div className="settings-note">
+            清除搜索 / 封面缓存，不影响歌单、收藏与设置。建议缓存异常时使用。
+          </div>
+          <div className="settings-note" style={{ marginTop: 4 }}>
             导出包含歌单、收藏、最近播放、设置；导入会覆盖本地数据。
           </div>
           <div className="settings-row settings-row--with-control" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -431,10 +594,29 @@ export default function Settings() {
           <h3 className="settings-group-card__title">关于</h3>
         </div>
         <div className="settings-group-card__body settings-about">
-          <div>AurisLeft v{appVersion}</div>
-          <div>Electron + React 桌面音乐播放器</div>
-          <div>西瓜糖 QQ 解析 · 多平台搜索 · 歌单 · 本地 · 收藏 · 下载</div>
-          <div className="settings-row settings-row--with-control" style={{ marginTop: 10, gap: 8 }}>
+          <div className="settings-about__hero">
+            <AppLogo size={44} />
+            <div className="settings-about__headline">
+              <div className="settings-about__name">左耳</div>
+              <div className="settings-about__version">v{appVersion}</div>
+            </div>
+          </div>
+          <div className="settings-about__desc">
+            左耳是一款专注于「找得到、听得爽」的桌面音乐播放器。内置 QQ 音乐解析与多平台聚合搜索，
+            同时支持本地音乐、在线点播、歌单管理、收听收藏与一键下载。
+          </div>
+          <div className="settings-about__features">
+            <span>内置 QQ 解析</span>
+            <span>多平台搜索</span>
+            <span>本地音乐</span>
+            <span>歌单管理</span>
+            <span>我的收藏</span>
+            <span>在线下载</span>
+            <span>桌面歌词</span>
+            <span>多主题换肤</span>
+          </div>
+          <div className="settings-about__tech">Electron + React · 轻量 · 本地优先</div>
+          <div className="settings-row settings-row--with-control" style={{ marginTop: 12, gap: 8 }}>
             <button
               type="button"
               className="settings-btn settings-btn--primary"
@@ -460,6 +642,7 @@ export default function Settings() {
                 : updateInfo.message || `当前 v${updateInfo.current} 已是最新`}
             </div>
           ) : null}
+          <div className="settings-about__footer">© 左耳 Contributors · 仅供学习交流使用</div>
         </div>
       </section>
     </div>

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { app, shell, dialog } = require('electron');
+const { app, shell, dialog, nativeTheme, session } = require('electron');
 const { Database } = require('./db.cjs');
 const { SourceManager } = require('./sources.cjs');
 const { scanDirs, loadLocalLrc } = require('./localMusic.cjs');
@@ -10,6 +10,7 @@ const { SleepTimer } = require('./timer.cjs');
 const logger = require('./logger.cjs');
 const nkiQq = require('./nkiQq.cjs');
 const catalogSearch = require('./catalogSearch.cjs');
+const lyricWindow = require('./lyricWindow.cjs');
 const { getLogsDir, getBackupsDir } = require('./appPaths.cjs');
 
 const defaultSettings = () => ({
@@ -19,17 +20,22 @@ const defaultSettings = () => ({
     volume: 0.8,
     shuffle: false,
     repeatMode: 'none',
+    autoLaunch: false,
+    restorePlayback: false,
+    fadeSwitch: true,
   },
   appearance: {
     theme: {
       primary: '#e8a54b',
-      background: '#0c0e12',
-      surface: '#141820',
-      textPrimary: '#f3f1ec',
-      textSecondary: '#8a8794',
-      accent: '#9b8cff',
+      background: '#0a0c10',
+      surface: '#12161e',
+      textPrimary: '#f4f2ed',
+      textSecondary: '#7e7b88',
+      accent: '#a594ff',
     },
     showLyric: true,
+    themeMode: 'manual',
+    desktopLyrics: false,
   },
   sources: {
     timeoutMs: 8000,
@@ -52,6 +58,17 @@ function createAppState() {
 
 function registerHandlers(ipcMain, getMainWindow, state) {
   const { db, sourceMgr, sleepTimer } = state;
+
+  const safeSend = (channel, ...args) => {
+    try {
+      const win = getMainWindow();
+      if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send(channel, ...args);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
 
   const handle = (channel, fn) => {
     ipcMain.handle(channel, async (_event, payload = {}) => {
@@ -408,7 +425,10 @@ function registerHandlers(ipcMain, getMainWindow, state) {
     return db.exportToM3u(playlistId);
   });
   handle('import_playlist', async ({ filePath }) => {
-    const text = fs.readFileSync(filePath, 'utf8');
+    const st = await fs.promises.stat(filePath).catch(() => null);
+    if (!st || !st.isFile()) throw new Error('文件不存在');
+    if (st.size > 5 * 1024 * 1024) throw new Error('文件过大，无法导入（上限 5MB）');
+    const text = await fs.promises.readFile(filePath, 'utf8');
     const name = path.basename(filePath, path.extname(filePath)) || '导入歌单';
     const id = db.createPlaylist(name);
     // minimal m3u parse
@@ -515,7 +535,6 @@ function registerHandlers(ipcMain, getMainWindow, state) {
 
   // ── Download ──
   handle('download_song', async ({ song, quality }) => {
-    const win = getMainWindow();
     const taskId = `${song.source}:${song.songId}`;
     const url = await sourceMgr.getMusicUrl(song.songId, quality, song.source, {
       name: song.name,
@@ -538,14 +557,14 @@ function registerHandlers(ipcMain, getMainWindow, state) {
     const filename = `${safeName}.${ext}`;
 
     const filePath = await download.downloadToFile(url, filename, (progress_pct) => {
-      win?.webContents.send('download-progress', {
+      safeSend('download-progress', {
         filename,
         progress_pct,
         task_id: taskId,
       });
     });
 
-    win?.webContents.send('download-complete', { filename, task_id: taskId, path: filePath });
+    safeSend('download-complete', { filename, task_id: taskId, path: filePath });
     return filePath;
   });
 
@@ -584,7 +603,7 @@ function registerHandlers(ipcMain, getMainWindow, state) {
   // ── Timer ──
   handle('start_sleep_timer', async ({ minutes }) => {
     sleepTimer.start(minutes, () => {
-      getMainWindow()?.webContents.send('sleep-timer-fired');
+      safeSend('sleep-timer-fired');
     });
   });
   handle('cancel_sleep_timer', async () => {
@@ -634,6 +653,8 @@ function registerHandlers(ipcMain, getMainWindow, state) {
     const raw = fs.readFileSync(result.filePaths[0], 'utf8');
     const payload = JSON.parse(raw);
     const info = db.importBackup(payload);
+    // 导入后立即落盘，避免防抖窗口内崩溃丢失
+    await db.flush();
     // Reload user sources after restore
     try {
       await sourceMgr.loadFromFile();
@@ -709,6 +730,42 @@ function registerHandlers(ipcMain, getMainWindow, state) {
   handle('open_external', async ({ url }) => {
     if (!url || !/^https?:\/\//i.test(url)) throw new Error('无效链接');
     await shell.openExternal(url);
+  });
+
+  // ── 拓展设置：开机自启 / 清缓存 / 主题模式 / 桌面歌词 ──
+  handle('get_auto_launch', async () => {
+    try {
+      const s = app.getLoginItemSettings();
+      return { enabled: Boolean(s.openAtLogin) };
+    } catch {
+      return { enabled: false };
+    }
+  });
+  handle('set_auto_launch', async ({ enabled }) => {
+    app.setLoginItemSettings({ openAtLogin: Boolean(enabled) });
+    return { enabled: Boolean(enabled) };
+  });
+  handle('clear_app_cache', async () => {
+    await session.defaultSession.clearCache();
+    await session.defaultSession.clearStorageData({ storages: ['caches', 'serviceworkers'] });
+    return { ok: true };
+  });
+  handle('set_theme_mode', async ({ mode }) => {
+    const m = ['light', 'dark', 'system'].includes(mode) ? mode : 'system';
+    nativeTheme.themeSource = m;
+    return { ok: true, themeSource: m };
+  });
+  handle('lyric_window', async ({ open }) => {
+    if (open) {
+      lyricWindow.openLyricWindow();
+    } else {
+      lyricWindow.closeLyricWindow();
+    }
+    return { ok: true, open: Boolean(open) };
+  });
+  handle('lyric_data', async ({ payload }) => {
+    lyricWindow.push(payload);
+    return { ok: true };
   });
 }
 
