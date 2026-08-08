@@ -38,6 +38,8 @@ function SongRow({ song, index, allSongs }: { song: Song; index: number; allSong
   const addTask = useDownloadStore((s) => s.addTask);
   const [playlistSong, setPlaylistSong] = useState<Song | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 防双击三连：300ms 内第二次触发直接忽略 */
+  const lastPlayAtRef = useRef(0);
 
   const isActive = currentSong ? songKey(currentSong) === songKey(song) : false;
   const isPlaying = isActive && playbackState === PlaybackState.Playing;
@@ -51,6 +53,10 @@ function SongRow({ song, index, allSongs }: { song: Song; index: number; allSong
     (song.qualities?.includes(Quality.K320) ? Quality.K320 : song.qualities?.[0]) ||
     Quality.K320;
   const handlePlay = () => {
+    // 双击时 click 会触发两次：忽略 300ms 内的第二次，避免播放/暂停来回切换
+    const now = Date.now();
+    if (now - lastPlayAtRef.current < 300) return;
+    lastPlayAtRef.current = now;
     // Active track: toggle pause / resume instead of restarting the whole list
     if (isActive && isPlaying) {
       void pause(toast.addToast);
@@ -101,7 +107,6 @@ function SongRow({ song, index, allSongs }: { song: Song; index: number; allSong
     <>
       <div
         className={`song-row${isActive ? ' song-row--active' : ''}`}
-        onDoubleClick={handlePlay}
         onMouseEnter={handleHoverWarm}
         onMouseLeave={clearHoverWarm}
       >
@@ -187,7 +192,9 @@ function SongRow({ song, index, allSongs }: { song: Song; index: number; allSong
             title="下载"
             onClick={(e) => {
               e.stopPropagation();
-              void addTask(song, quality).then(() => toast.addToast('已加入下载', 'success'));
+              void addTask(song, quality).then((ok) =>
+                ok ? toast.addToast('已加入下载', 'success') : toast.addToast('下载失败', 'error')
+              );
             }}
           >
             <Download size={13} />
@@ -236,6 +243,8 @@ export default function SearchResults() {
   const results = useSearchStore((s) => s.results);
   const loading = useSearchStore((s) => s.loading);
   const keyword = useSearchStore((s) => s.keyword);
+  const error = useSearchStore((s) => s.error);
+  const search = useSearchStore((s) => s.search);
 
   if (loading) {
     return (
@@ -246,6 +255,23 @@ export default function SearchResults() {
   }
 
   if (!keyword) return null;
+
+  // 搜索出错（网络/接口异常）与「没搜到」是两回事，不能混为一谈
+  if (error) {
+    return (
+      <div className="search-results__empty">
+        <div>搜索失败：{error}</div>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          style={{ marginTop: 12 }}
+          onClick={() => void search(keyword, 1)}
+        >
+          重试
+        </button>
+      </div>
+    );
+  }
 
   // 多平台结果已在 store 合并去重，这里只展示扁平列表（不显示平台）
   const allSongs = Array.from(results.values()).flat();

@@ -16,22 +16,22 @@ function getMusicMetadata() {
 }
 
 function walkFiles(dir, out = []) {
-  let entries = [];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return out;
-  }
-  for (const ent of entries) {
-    if (ent.name.startsWith('.')) continue;
-    const full = path.join(dir, ent.name);
-    if (ent.isDirectory()) walkFiles(full, out);
-    else if (ent.isFile()) {
-      const ext = path.extname(ent.name).toLowerCase();
-      if (EXTS.has(ext)) out.push(full);
-    }
-  }
-  return out;
+  return fs.promises
+    .readdir(dir, { withFileTypes: true })
+    .then((entries) => {
+      const pending = [];
+      for (const ent of entries) {
+        if (ent.name.startsWith('.')) continue;
+        const full = path.join(dir, ent.name);
+        if (ent.isDirectory()) pending.push(walkFiles(full, out));
+        else if (ent.isFile()) {
+          const ext = path.extname(ent.name).toLowerCase();
+          if (EXTS.has(ext)) out.push(full);
+        }
+      }
+      return Promise.all(pending);
+    })
+    .catch(() => out);
 }
 
 function coverCacheDir() {
@@ -45,15 +45,17 @@ function toAurisLocalUrl(filePath) {
   return `aurislocal://media/${encoded}`;
 }
 
-function saveEmbeddedCover(filePath, picture) {
+async function saveEmbeddedCover(filePath, picture) {
   if (!picture?.data) return null;
   try {
     const fmt = String(picture.format || 'image/jpeg').toLowerCase();
     const ext = fmt.includes('png') ? 'png' : fmt.includes('webp') ? 'webp' : 'jpg';
     const hash = crypto.createHash('md5').update(filePath).digest('hex');
     const coverPath = path.join(coverCacheDir(), `${hash}.${ext}`);
-    if (!fs.existsSync(coverPath)) {
-      fs.writeFileSync(coverPath, Buffer.from(picture.data));
+    try {
+      await fs.promises.access(coverPath, fs.constants.F_OK);
+    } catch {
+      await fs.promises.writeFile(coverPath, Buffer.from(picture.data));
     }
     return toAurisLocalUrl(coverPath);
   } catch {
@@ -77,7 +79,12 @@ function fallbackMeta(filePath, st) {
 }
 
 async function readMeta(filePath) {
-  const st = fs.statSync(filePath);
+  let st;
+  try {
+    st = await fs.promises.stat(filePath);
+  } catch {
+    st = { size: 0 };
+  }
   const parser = await getMusicMetadata();
   if (!parser || !parser.parseFile) return fallbackMeta(filePath, st);
 
@@ -87,7 +94,7 @@ async function readMeta(filePath) {
     const format = metadata.format || {};
     const ext = path.extname(filePath).toLowerCase().replace('.', '');
     const pic = Array.isArray(common.picture) ? common.picture[0] : null;
-    const coverUrl = pic ? saveEmbeddedCover(filePath, pic) : null;
+    const coverUrl = pic ? await saveEmbeddedCover(filePath, pic) : null;
     return {
       filePath,
       title: common.title || path.basename(filePath, path.extname(filePath)),
@@ -166,7 +173,7 @@ async function scanDirs(dirs) {
   const files = [];
   for (const dir of dirs) {
     if (!dir || !fs.existsSync(dir)) continue;
-    walkFiles(dir, files);
+    await walkFiles(dir, files);
   }
 
   const songs = [];

@@ -303,6 +303,45 @@ export async function markOnboardingSeen(): Promise<void> {
   return invoke('mark_onboarding_seen');
 }
 
+// ── 拓展设置 ──
+
+export async function getAutoLaunch(): Promise<{ enabled: boolean }> {
+  return invoke<{ enabled: boolean }>('get_auto_launch');
+}
+
+export async function setAutoLaunch(enabled: boolean): Promise<{ enabled: boolean }> {
+  return invoke<{ enabled: boolean }>('set_auto_launch', { enabled });
+}
+
+export async function clearAppCache(): Promise<{ ok: boolean }> {
+  return invoke<{ ok: boolean }>('clear_app_cache');
+}
+
+export async function setThemeMode(mode: string): Promise<{ ok: boolean; themeSource: string }> {
+  return invoke<{ ok: boolean; themeSource: string }>('set_theme_mode', { mode });
+}
+
+export async function openLyricWindow(): Promise<{ ok: boolean; open: boolean }> {
+  return invoke<{ ok: boolean; open: boolean }>('lyric_window', { open: true });
+}
+
+export async function closeLyricWindow(): Promise<{ ok: boolean; open: boolean }> {
+  return invoke<{ ok: boolean; open: boolean }>('lyric_window', { open: false });
+}
+
+export interface LyricWindowPayload {
+  text: string;
+  song: string;
+  artist: string;
+  playing: boolean;
+  percent: number;
+  colors: { text: string; sub: string; accent: string; bg: string };
+}
+
+export async function pushLyricData(payload: LyricWindowPayload): Promise<{ ok: boolean }> {
+  return invoke<{ ok: boolean }>('lyric_data', { payload });
+}
+
 export interface NkiQqStatus {
   enabled: boolean;
   hasKey: boolean;

@@ -61,6 +61,27 @@ function normalizeCover(url) {
   return u;
 }
 
+/**
+ * 解析酷我 r.s 接口返回的 JSON（偶发非严格 JSON：键或字符串用单引号）。
+ * 优先严格解析；失败后仅把「贴近 JSON 结构字符」的单引号替换为双引号，
+ * 避免误伤字符串值里的合法撇号（例如 "I'm"）。
+ */
+function parseKuwoJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    /* 继续走宽松解析 */
+  }
+  try {
+    const repaired = text
+      .replace(/([{,:\s])'/g, '$1"')
+      .replace(/'([{:,\s}])/g, '"$1');
+    return JSON.parse(repaired);
+  } catch {
+    return null;
+  }
+}
+
 /** 解码酷我等接口里的 \u0026、&nbsp; 等 */
 function decodeText(s) {
   if (s == null) return '';
@@ -150,14 +171,7 @@ async function searchKuwo(keyword, page = 1) {
     `https://search.kuwo.cn/r.s?all=${encodeURIComponent(keyword)}` +
     `&ft=music&itemset=web_2013&client=kt&pn=${pn}&rn=30&rformat=json&encoding=utf8`;
   const text = await httpGet(url, 12000, { Referer: 'https://www.kuwo.cn/' });
-  // 酷我有时返回非严格 JSON
-  const jsonText = text.replace(/'/g, '"');
-  let data;
-  try {
-    data = JSON.parse(jsonText);
-  } catch {
-    data = JSON.parse(text);
-  }
+  const data = parseKuwoJson(text);
   const list = data?.abslist || data?.list || [];
   const total = Number(data?.TOTAL || data?.total || list.length) || list.length;
   const songs = list
@@ -200,25 +214,27 @@ async function searchKuwo(keyword, page = 1) {
 
 /** 酷狗 */
 async function searchKugou(keyword, page = 1) {
+  // mobilecdn.kugou.com 的 HTTPS 证书不匹配（CNAME 到腾讯云 CDN），改用 songsearch
   const url =
-    `http://mobilecdn.kugou.com/api/v3/search/song?format=json` +
-    `&keyword=${encodeURIComponent(keyword)}&page=${page}&pagesize=30`;
-  const text = await httpGet(url, 12000);
+    `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(keyword)}` +
+    `&page=${Math.max(1, page)}&pagesize=30` +
+    `&userid=-1&clientver=2000&platform=WebFilter&filter=2&iscorrection=1&privilege_filter=0`;
+  const text = await httpGet(url, 12000, { Referer: 'https://www.kugou.com/' });
   const data = JSON.parse(text);
-  const list = data?.data?.info || [];
+  const list = data?.data?.lists || [];
   const total = Number(data?.data?.total || list.length) || list.length;
   const songs = list
     .map((s) => {
-      const hash = String(s.hash || s.Hash || '').toLowerCase();
+      const hash = String(s.FileHash || s.HQFileHash || s.SQFileHash || '').toLowerCase();
       const name = decodeText(
-        s.songname || s.songName || s.filename?.split(' - ').pop() || '未知'
+        s.SongName || s.songname || s.filename?.split(' - ').pop() || '未知'
       );
       const artist = decodeText(
-        s.singername || s.singerName || s.filename?.split(' - ')[0] || '未知'
+        s.SingerName || s.singername || s.filename?.split(' - ')[0] || '未知'
       );
-      const album = decodeText(s.album_name || s.albumName || '');
-      const duration = Number(s.duration || s.timeLength || 0) || 0;
-      let cover = s.trans_param?.union_cover || s.album_sizable_cover || null;
+      const album = decodeText(s.AlbumName || s.album_name || '');
+      const duration = Number(s.Duration || s.duration || s.timeLength || 0) || 0;
+      let cover = s.TransParam?.union_cover || s.album_sizable_cover || null;
       if (cover) cover = String(cover).replace(/\{size\}/g, '240');
       cover = normalizeCover(cover);
       return {

@@ -28,6 +28,16 @@ try {
 /** @type {AbortController | null} */
 let playAbort = null;
 let playSession = 0;
+/**
+ * 后台预热取消：
+ * - 单曲预热（warmSong/悬停）用模块级 prefetchAbort，播放时 abort
+ * - 批量预热（prefetchSongs）每批持有一个 AbortController，播放时全部 abort
+ * 注意：不能在这里「轮换」prefetchAbort——旧批次 worker 若读实时模块级变量，
+ * 会拿到未 abort 的新控制器，导致预热漏网并继续占串行 slot（实测拖慢播放 8s+）
+ */
+let prefetchAbort = new AbortController();
+/** 活跃的批量预热控制器 */
+const prefetchBatchAborts = new Set();
 /** mid+quality -> { url, meta, exp } */
 const midCache = new Map();
 /** 内存/磁盘缓存 24 小时 —— 听过或预热过的歌尽量秒开 */
@@ -41,12 +51,15 @@ const NKI_WARM_MS = 9000;
 const inflightMid = new Map();
 let diskCacheLoaded = false;
 let preconnected = false;
+/** prefs 内存缓存：loadPrefs 高频调用不再重复读盘 */
+let prefsCache = null;
 
 function prefsPath() {
   return path.join(getAppDataDir(), 'nki-prefs.json');
 }
 
 function loadPrefs() {
+  if (prefsCache) return prefsCache;
   try {
     const p = prefsPath();
     if (!fs.existsSync(p)) {
@@ -56,6 +69,7 @@ function loadPrefs() {
         updatedAt: Date.now(),
       };
       savePrefs(seed);
+      prefsCache = seed;
       return seed;
     }
     const data = JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -66,9 +80,12 @@ function loadPrefs() {
       savePrefs(data);
     }
     if (data.enabled === undefined) data.enabled = true;
+    prefsCache = data;
     return data;
   } catch {
-    return { apiKey: DEFAULT_API_KEY || '', enabled: true };
+    const fallback = { apiKey: DEFAULT_API_KEY || '', enabled: true };
+    prefsCache = fallback;
+    return fallback;
   }
 }
 
@@ -80,6 +97,8 @@ function savePrefs(data) {
       JSON.stringify({ ...data, updatedAt: Date.now() }, null, 2),
       'utf8'
     );
+    // 写盘成功后再更新缓存，避免缓存与磁盘不一致
+    prefsCache = { ...data, updatedAt: Date.now() };
   } catch (e) {
     console.warn('[nki] save prefs failed', e.message || e);
   }
@@ -113,7 +132,7 @@ function getStatus() {
   const key = String(p.apiKey || '');
   return {
     enabled: p.enabled !== false,
-    hasKey: key.length > 8,
+    hasKey: key.length > 0,
     keyHint: key.length > 12 ? `${key.slice(0, 6)}…${key.slice(-4)}` : key ? '****' : '',
     api: API_URL,
   };
@@ -129,6 +148,22 @@ function beginPlaySession() {
     }
   }
   playAbort = new AbortController();
+  // 播放开始：取消所有后台预热（单曲 + 各批量批次），
+  // 避免 15 首预热把串行 slot 占满，播放请求排到最后
+  for (const c of prefetchBatchAborts) {
+    try {
+      c.abort();
+    } catch {
+      /* ignore */
+    }
+  }
+  prefetchBatchAborts.clear();
+  try {
+    prefetchAbort.abort();
+  } catch {
+    /* ignore */
+  }
+  prefetchAbort = new AbortController();
   return { session: playSession, signal: playAbort.signal };
 }
 
@@ -147,14 +182,14 @@ function httpsify(u) {
 }
 
 /**
- * 限流：预热最多占 2 槽；播放可插队到 4 槽且排在队首
- * → 点播放不会被后台预热堵住
+ * 限流：西瓜糖 API 对同一密钥并发请求是串行处理的（实测 4 并发 → 总耗时 49s，单发约 4s），
+ * 并发越多排队越长。因此严格串行：任意时刻只发 1 个请求，客户端排队，避免服务端排队叠加。
  */
 let nkiInflight = 0;
 /** @type {{ resolve: Function, priority: boolean }[]} */
 const nkiWaitQueue = [];
-const NKI_MAX_WARM = 2;
-const NKI_MAX_TOTAL = 4;
+const NKI_MAX_WARM = 1;
+const NKI_MAX_TOTAL = 1;
 
 function acquireNkiSlot(priority = false) {
   const limit = priority ? NKI_MAX_TOTAL : NKI_MAX_WARM;
@@ -229,7 +264,7 @@ function preconnect() {
  */
 async function apiGet(params, timeoutMs = 12000, externalSignal = null, opts = {}) {
   const key = getApiKey();
-  if (!key) throw new Error('未配置西瓜糖 QQ 接口密钥');
+  if (!key) throw new Error('未配置内置 QQ 解析密钥');
   const priority = Boolean(opts.priority);
 
   if (externalSignal?.aborted) throw switchedError();
@@ -541,14 +576,17 @@ async function resolveByMidDetailed(
     return { url: cached.url, meta: cached.meta };
   }
 
-  if (signal?.aborted) throw switchedError();
+  const cancelSignal = opts.cancelSignal || null; // 预热可被播放取消
+  if (signal?.aborted || cancelSignal?.aborted) throw switchedError();
 
   // 已有同 mid 在飞（预热/上次点击）→ 等它，别再开一轮
-  const flying = inflightMid.get(bare);
+  // 注意：播放路径不共享 —— 预热可能深排队（15 首 × 9s+），
+  // 共享 = 播放被预热队列拖死（实测 41s）。播放直接走高优插队。
+  const flying = signal ? null : inflightMid.get(bare);
   if (flying) {
     try {
       const shared = await flying;
-      if (signal?.aborted) throw switchedError();
+      if (signal?.aborted || cancelSignal?.aborted) throw switchedError();
       if (shared?.url) return shared;
     } catch (e) {
       if (e?.code === 'PLAY_SWITCHED') throw e;
@@ -561,12 +599,14 @@ async function resolveByMidDetailed(
   const isPlay = Boolean(signal); // 有 signal = 用户点播路径，优先插队
   const midTimeout =
     opts.timeoutMs || (isPlay ? NKI_PLAY_MID_MS : NKI_WARM_MS);
+  // 预热请求用 cancelSignal 作为外部取消信号；播放用 session signal
+  const apiSignal = isPlay ? signal : cancelSignal;
   const t0 = Date.now();
   const work = (async () => {
     let hit = null;
     try {
       // 播放：music+mid 一路；超时收紧，尽快让上层走歌名/酷我
-      hit = await detailToHit({ msg: 'music', mid: bare }, quality, signal, {
+      hit = await detailToHit({ msg: 'music', mid: bare }, quality, apiSignal, {
         priority: isPlay,
         timeoutMs: midTimeout,
       });
@@ -574,12 +614,12 @@ async function resolveByMidDetailed(
       if (e?.code === 'PLAY_SWITCHED') throw e;
     }
     // 预热：再试歌名+mid；播放路径不串第二枪（已与歌名并行竞速）
-    if (!hit?.url && !isPlay && !(signal?.aborted)) {
+    if (!hit?.url && !isPlay && !(signal?.aborted) && !(cancelSignal?.aborted)) {
       try {
         hit = await detailToHit(
           { msg: name !== 'music' ? name : 'jay', n: '1', mid: bare },
           quality,
-          signal,
+          apiSignal,
           { priority: false, timeoutMs: NKI_WARM_MS }
         );
       } catch (e) {
@@ -600,10 +640,12 @@ async function resolveByMidDetailed(
   inflightMid.set(bare, work);
   try {
     const result = await work;
-    if (signal?.aborted) throw switchedError();
+    if (signal?.aborted || cancelSignal?.aborted) throw switchedError();
     return result;
   } catch (e) {
-    if (e?.code === 'PLAY_SWITCHED' || signal?.aborted) throw switchedError();
+    if (e?.code === 'PLAY_SWITCHED' || signal?.aborted || cancelSignal?.aborted) {
+      throw switchedError();
+    }
     throw e;
   } finally {
     if (inflightMid.get(bare) === work) inflightMid.delete(bare);
@@ -813,15 +855,19 @@ async function resolvePlayUrl({ mid, mids, name, artist, quality } = {}) {
       /* already tried */
     } else if (hasName && primary) {
       // race 已试过 name；若 race 因单路异常提前结束，再补一枪
-      try {
-        const byName = await resolveByNameDirect(name, artist, q, signal);
-        if (byName?.url) {
-          console.log('[nki-qq] play ok name-retry', `${Date.now() - t0}ms`, name);
-          return byName;
-        }
-      } catch (e) {
-        if (e?.code === 'PLAY_SWITCHED' || signal?.aborted || session !== playSession) {
-          throw switchedError();
+      // 若 race 已跑满两路预算（mid 3.2s + name 4.5s 都超时），补枪只会再白等 4.5s
+      const raceBudget = NKI_PLAY_MID_MS + NKI_PLAY_MS;
+      if (Date.now() - t0 < raceBudget) {
+        try {
+          const byName = await resolveByNameDirect(name, artist, q, signal);
+          if (byName?.url) {
+            console.log('[nki-qq] play ok name-retry', `${Date.now() - t0}ms`, name);
+            return byName;
+          }
+        } catch (e) {
+          if (e?.code === 'PLAY_SWITCHED' || signal?.aborted || session !== playSession) {
+            throw switchedError();
+          }
         }
       }
     }
@@ -838,15 +884,19 @@ async function resolvePlayUrl({ mid, mids, name, artist, quality } = {}) {
 
 /**
  * 后台预热缓存（不占用 play session；与播放共享 inflight）
+ * @param {{ cancelSignal?: AbortSignal|null }} opts 批量预热传本批次取消器；单曲预热默认用模块级 prefetchAbort
  */
-async function warmMid(mid, nameHint = '', quality = '320k') {
+async function warmMid(mid, nameHint = '', quality = '320k', opts = {}) {
   if (!isEnabled()) return;
   const bare = normalizeMid(mid);
   if (!bare || bare.length < 10 || bare.length > 20) return;
   if (!/^[0-9A-Za-z]+$/.test(bare) || /^\d+$/.test(bare)) return;
   if (cacheGet(bare, quality) || cacheGet(bare, '__any__')) return;
+  const cancelSignal = opts.cancelSignal || prefetchAbort.signal;
   try {
-    await resolveByMidDetailed(bare, quality, null, nameHint || 'music');
+    await resolveByMidDetailed(bare, quality, null, nameHint || 'music', {
+      cancelSignal,
+    });
   } catch {
     /* ignore */
   }
@@ -871,29 +921,40 @@ function prefetchSongs(songs, limit = 15) {
   if (!isEnabled() || !Array.isArray(songs)) return;
   preconnect();
   const gen = ++prefetchGen;
+  // 本批次取消器：播放开始（beginPlaySession）会 abort 掉它
+  const batchAbort = new AbortController();
+  prefetchBatchAborts.add(batchAbort);
   const list = songs.slice(0, limit);
   setImmediate(async () => {
-    const todos = [];
-    for (const s of list) {
-      const mid = extractSongMid(s);
-      if (!mid) continue;
-      if (cacheGet(mid, '320k') || cacheGet(mid, '__any__')) continue;
-      todos.push({ mid, name: s.name || '' });
-    }
-    // 并行 2：和 NKI_MAX_WARM 对齐，尽快填缓存
-    let i = 0;
-    const worker = async () => {
-      while (i < todos.length) {
-        if (gen !== prefetchGen) return;
-        const cur = todos[i++];
-        try {
-          await warmMid(cur.mid, cur.name, '320k');
-        } catch {
-          /* ignore */
-        }
+    try {
+      const todos = [];
+      for (const s of list) {
+        const mid = extractSongMid(s);
+        if (!mid) continue;
+        if (cacheGet(mid, '320k') || cacheGet(mid, '__any__')) continue;
+        todos.push({ mid, name: s.name || '' });
       }
-    };
-    await Promise.all([worker(), worker()]);
+      // 并发 1：西瓜糖服务端串行排队，多 worker 也只会一个一个跑
+      let i = 0;
+      const worker = async () => {
+        while (i < todos.length) {
+          if (gen !== prefetchGen) return;
+          // 播放开始会 abort 本批次 → 立即停止预热，别占串行 slot
+          if (batchAbort.signal.aborted) return;
+          const cur = todos[i++];
+          try {
+            await warmMid(cur.mid, cur.name, '320k', {
+              cancelSignal: batchAbort.signal,
+            });
+          } catch {
+            /* ignore */
+          }
+        }
+      };
+      await Promise.all([worker(), worker()]);
+    } finally {
+      prefetchBatchAborts.delete(batchAbort);
+    }
   });
 }
 

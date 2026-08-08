@@ -13,8 +13,11 @@ const {
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
+const dns = require('dns');
+const nodeNet = require('net');
 const { createAppState, registerHandlers } = require('./services/handlers.cjs');
 const { pickMediaHeaders } = require('./services/mediaHeaders.cjs');
+const { getAppDataDir } = require('./services/appPaths.cjs');
 const logger = require('./services/logger.cjs');
 
 const isDev = !app.isPackaged;
@@ -61,14 +64,119 @@ function getMainWindow() {
   return mainWindow;
 }
 
+/** 发送 IPC 前判空，避免窗口销毁后抛 “Object has been destroyed” */
+function safeSend(channel, ...args) {
+  try {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(channel, ...args);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * aurislocal 路径白名单：仅允许本地音乐目录与 appData 子目录内的真实文件，
+ * 解析符号链接后校验，防止 base64 路径读走任意磁盘文件。
+ */
+function isAllowedLocalFile(filePath) {
+  try {
+    const real = fs.realpathSync(path.resolve(filePath));
+    const roots = [
+      getAppDataDir(),
+      ...(state?.db?.getLocalMusicDirs() || []),
+    ];
+    for (const root of roots) {
+      try {
+        const realRoot = fs.realpathSync(path.resolve(root));
+        const rel = path.relative(realRoot, real);
+        if (rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+          return true;
+        }
+      } catch {
+        /* skip invalid root */
+      }
+    }
+  } catch {
+    /* not a real file */
+  }
+  return false;
+}
+
+/** IPv4 是否内网/回环/链路本地/保留段（SSRF 防护） */
+function isPrivateIpv4(ip) {
+  const parts = String(ip).split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+    return true;
+  }
+  const [a, b] = parts;
+  if (a === 0 || a === 10 || a === 127 || a >= 224) return true; // 0/8 10/8 127/8 组播+保留
+  if (a === 169 && b === 254) return true; // 链路本地（云元数据 169.254.169.254）
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16/12
+  if (a === 192 && b === 168) return true; // 192.168/16
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64/10 CGNAT
+  if (a === 198 && (b === 18 || b === 19)) return true; // 198.18/15 基准测试段
+  return false;
+}
+
+/** IPv6 是否回环/链路本地/唯一本地地址 */
+function isPrivateIpv6(ip) {
+  const lower = String(ip).toLowerCase();
+  if (lower === '::' || lower === '::1') return true;
+  if (lower.startsWith('fe8') || lower.startsWith('fec0')) return true; // 链路本地/站点本地
+  if (/^f[cd]/.test(lower)) return true; // ULA fc00::/7
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower);
+  if (mapped) return isPrivateIpv4(mapped[1]);
+  return false;
+}
+
+/** hostname -> 是否解析为安全的公网地址（5 分钟缓存） */
+const dnsSafeCache = new Map();
+function assertPublicTarget(target) {
+  const u = new URL(target);
+  const host = u.hostname;
+  const ipv = nodeNet.isIP(host);
+  if (ipv === 4) {
+    if (isPrivateIpv4(host)) throw new Error('private ipv4');
+    return Promise.resolve();
+  }
+  if (ipv === 6) {
+    if (isPrivateIpv6(host)) throw new Error('private ipv6');
+    return Promise.resolve();
+  }
+  const cached = dnsSafeCache.get(host);
+  if (cached !== undefined) {
+    if (!cached) throw new Error('blocked hostname');
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    dns.lookup(host, { all: true }, (err, addresses) => {
+      let ok = false;
+      if (!err && Array.isArray(addresses) && addresses.length) {
+        ok = addresses.every((addr) => {
+          const ip = String(addr.address);
+          if (nodeNet.isIP(ip) === 4) return !isPrivateIpv4(ip);
+          if (nodeNet.isIP(ip) === 6) return !isPrivateIpv6(ip);
+          return false;
+        });
+      }
+      dnsSafeCache.set(host, ok);
+      setTimeout(() => dnsSafeCache.delete(host), 5 * 60 * 1000).unref();
+      if (ok) resolve();
+      else reject(new Error('blocked hostname resolution'));
+    });
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'AurisLeft',
-    backgroundColor: '#0c0e12',
+    title: '左耳',
+    backgroundColor: '#0d0f12',
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
@@ -88,15 +196,23 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    // 仅放行 http/https，避免 file://、smb:// 等协议被静默调起本机程序
+    try {
+      const u = new URL(url);
+      if (u.protocol === 'http:' || u.protocol === 'https:') {
+        shell.openExternal(url);
+      }
+    } catch {
+      /* ignore malformed url */
+    }
     return { action: 'deny' };
   });
 
   mainWindow.on('maximize', () => {
-    mainWindow?.webContents.send('window-state', { maximized: true });
+    safeSend('window-state', { maximized: true });
   });
   mainWindow.on('unmaximize', () => {
-    mainWindow?.webContents.send('window-state', { maximized: false });
+    safeSend('window-state', { maximized: false });
   });
 
   // Close → hide to tray (true quit only via tray menu / app.quit)
@@ -169,7 +285,7 @@ function setupTray() {
       image = nativeImage.createFromBuffer(png);
     }
     tray = new Tray(image);
-    tray.setToolTip('AurisLeft');
+    tray.setToolTip('左耳');
     tray.setContextMenu(
       Menu.buildFromTemplate([
         {
@@ -183,15 +299,15 @@ function setupTray() {
         },
         {
           label: '播放/暂停',
-          click: () => mainWindow?.webContents.send('hotkey-play-pause'),
+          click: () => safeSend('hotkey-play-pause'),
         },
         {
           label: '下一首',
-          click: () => mainWindow?.webContents.send('hotkey-next'),
+          click: () => safeSend('hotkey-next'),
         },
         {
           label: '上一首',
-          click: () => mainWindow?.webContents.send('hotkey-prev'),
+          click: () => safeSend('hotkey-prev'),
         },
         { type: 'separator' },
         {
@@ -215,13 +331,13 @@ function setupTray() {
 function setupHotkeys() {
   try {
     globalShortcut.register('MediaPlayPause', () => {
-      mainWindow?.webContents.send('hotkey-play-pause');
+      safeSend('hotkey-play-pause');
     });
     globalShortcut.register('MediaNextTrack', () => {
-      mainWindow?.webContents.send('hotkey-next');
+      safeSend('hotkey-next');
     });
     globalShortcut.register('MediaPreviousTrack', () => {
-      mainWindow?.webContents.send('hotkey-prev');
+      safeSend('hotkey-prev');
     });
   } catch (e) {
     console.warn('[hotkeys] register failed', e);
@@ -240,7 +356,7 @@ if (gotLock) {
   app.whenReady().then(() => {
     logger.install();
     state = createAppState();
-    console.log(`[boot] AurisLeft v${app.getVersion()} dev=${isDev}`);
+    console.log(`[boot] 左耳 v${app.getVersion()} dev=${isDev}`);
     // 预热西瓜糖连接，减少第一次解析握手时间
     try {
       const nkiQq = require('./services/nkiQq.cjs');
@@ -255,7 +371,8 @@ if (gotLock) {
         const u = new URL(request.url);
         const b64 = u.pathname.replace(/^\//, '').replace(/^media\//, '');
         const filePath = Buffer.from(b64, 'base64url').toString('utf8');
-        if (!filePath || !fs.existsSync(filePath)) {
+        // 仅允许「本地音乐目录 / appData」内的真实文件，防任意文件读取
+        if (!filePath || !isAllowedLocalFile(filePath)) {
           return new Response('Not Found', { status: 404 });
         }
         return net.fetch(pathToFileURL(filePath).href);
@@ -284,6 +401,13 @@ if (gotLock) {
         if (!/^https?:\/\//i.test(target)) {
           console.warn('[aurisstream] bad target from', request.url, '->', target.slice(0, 80));
           return new Response('Bad target', { status: 400 });
+        }
+        // SSRF 防护：拒绝内网/回环/链路本地/保留地址（含域名解析后）
+        try {
+          await assertPublicTarget(target);
+        } catch (e) {
+          console.warn('[aurisstream] blocked target', target.slice(0, 100), e?.message || '');
+          return new Response('Forbidden', { status: 403 });
         }
 
         const range = request.headers.get('Range') || request.headers.get('range');
@@ -389,6 +513,18 @@ if (gotLock) {
     setupTray();
     setupHotkeys();
 
+    // 启动时按设置恢复桌面歌词窗口
+    try {
+      const appSettings = state?.db?.loadSetting('app_settings');
+      const desktopLyrics = Boolean(appSettings?.appearance?.desktopLyrics);
+      if (desktopLyrics) {
+        const lyricWindow = require('./services/lyricWindow.cjs');
+        lyricWindow.openLyricWindow();
+      }
+    } catch (e) {
+      console.warn('[boot] restore desktop lyrics failed', e);
+    }
+
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
@@ -397,6 +533,12 @@ if (gotLock) {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  // 防抖落盘改为退出前同步兜底，保证最后 300ms 内的改动不丢
+  try {
+    state?.db?.flushSync?.();
+  } catch {
+    /* ignore */
+  }
 });
 
 app.on('window-all-closed', () => {

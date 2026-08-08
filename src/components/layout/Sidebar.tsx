@@ -13,6 +13,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { usePlaylistStore } from '../../store/playlistStore';
 import { useToast } from '../common/Toast/useToast';
 import TextDialog from '../common/TextDialog';
+import { getAppVersion } from '../../utils/desktop';
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -22,10 +23,17 @@ export default function Sidebar() {
   const setCurrentPlaylist = usePlaylistStore((s) => s.setCurrentPlaylist);
   const { addToast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState('');
 
   useEffect(() => {
     loadPlaylists();
   }, [loadPlaylists]);
+
+  useEffect(() => {
+    getAppVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion(''));
+  }, []);
 
   const handleCreateConfirm = async (name: string) => {
     setCreateOpen(false);
@@ -144,6 +152,8 @@ export default function Sidebar() {
           ))}
         </nav>
       </div>
+
+      <div className="sidebar__version">{appVersion ? `v${appVersion}` : ''}</div>
 
       <TextDialog
         open={createOpen}

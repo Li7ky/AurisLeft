@@ -7,10 +7,14 @@ const path = require('path');
 const { getLogsDir } = require('./appPaths.cjs');
 
 const MAX_BYTES = 2 * 1024 * 1024; // 2MB per day file before rotate
+const ROTATE_CHECK_EVERY = 200; // 每 200 行检查一次文件大小（避免每次 statSync）
 let ready = false;
 let logDir = null;
 let logFile = null;
+let stream = null;
 let originalConsole = null;
+let lineCount = 0;
+let rotating = false;
 
 function stamp() {
   return new Date().toISOString();
@@ -29,15 +33,38 @@ function ensureReady() {
   }
 }
 
-function rotateIfNeeded() {
-  if (!logFile || !fs.existsSync(logFile)) return;
+function openStream() {
+  if (!stream && ready && logFile) {
+    stream = fs.createWriteStream(logFile, { flags: 'a' });
+    stream.on('error', () => {
+      /* ignore disk errors */
+    });
+  }
+}
+
+/** 低频轮转：仅当行数达到阈值才检查文件大小，滚动后重开流 */
+function maybeRotate() {
+  if (!ready || !logFile || rotating) return;
   try {
+    if (!fs.existsSync(logFile)) return;
     const st = fs.statSync(logFile);
     if (st.size < MAX_BYTES) return;
+    rotating = true;
     const rotated = `${logFile}.${Date.now()}.bak`;
-    fs.renameSync(logFile, rotated);
+    const oldStream = stream;
+    stream = null;
+    const done = () => {
+      try {
+        fs.renameSync(logFile, rotated);
+      } catch {
+        /* ignore */
+      }
+      rotating = false;
+    };
+    if (oldStream) oldStream.end(done);
+    else done();
   } catch {
-    /* ignore */
+    rotating = false;
   }
 }
 
@@ -45,7 +72,6 @@ function writeLine(level, parts) {
   ensureReady();
   if (!ready || !logFile) return;
   try {
-    rotateIfNeeded();
     const msg = parts
       .map((p) => {
         if (p instanceof Error) return p.stack || p.message;
@@ -57,7 +83,11 @@ function writeLine(level, parts) {
         }
       })
       .join(' ');
-    fs.appendFileSync(logFile, `[${stamp()}] [${level}] ${msg}\n`, 'utf8');
+    openStream();
+    if (stream) {
+      stream.write(`[${stamp()}] [${level}] ${msg}\n`, 'utf8');
+      if (++lineCount % ROTATE_CHECK_EVERY === 0) maybeRotate();
+    }
   } catch {
     /* ignore disk errors */
   }
