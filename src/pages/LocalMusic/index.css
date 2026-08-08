@@ -70,9 +70,11 @@
 .local-music__dirs,
 .local-music__list {
   margin-bottom: 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: none;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+  box-shadow: none;
 }
 
 .local-music__list--virtual {
@@ -148,7 +150,7 @@
 }
 
 .local-music__row:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-tinted);
 }
 
 .local-music__td {

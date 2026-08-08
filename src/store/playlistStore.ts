@@ -23,7 +23,7 @@ interface PlaylistState {
 type ToastFn = ((message: string, type?: 'success' | 'error' | 'info') => void) | undefined;
 
 interface PlaylistActions {
-  createPlaylist: (name: string, toast?: ToastFn) => Promise<void>;
+  createPlaylist: (name: string, toast?: ToastFn) => Promise<boolean>;
   addSong: (playlistId: number, song: Song, toast?: ToastFn) => Promise<void>;
   removeSong: (playlistId: number, playlistSongId: number, toast?: ToastFn) => Promise<void>;
   deletePlaylist: (playlistId: number, toast?: ToastFn) => Promise<void>;
@@ -49,9 +49,11 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
       await createPlaylist(name);
       await get().loadPlaylists(toast);
       toast?.('歌单创建成功', 'success');
+      return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       toast?.(message, 'error');
+      return false;
     }
   },
 

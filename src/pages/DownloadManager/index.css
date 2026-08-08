@@ -44,10 +44,11 @@
 }
 
 .download-manager__item {
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
-  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border: none;
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 12px 14px;
+  box-shadow: none;
 }
 
 .download-manager__song-info {

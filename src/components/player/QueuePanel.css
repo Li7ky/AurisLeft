@@ -1,37 +1,39 @@
 .queue-panel {
   position: absolute;
-  right: 16px;
-  bottom: calc(var(--player-bar-height) + 12px);
-  width: 340px;
-  max-height: min(520px, calc(100vh - var(--player-bar-height) - var(--top-bar-height) - 40px));
+  right: 12px;
+  bottom: calc(var(--player-bar-height) + 8px);
+  width: 360px;
+  max-height: min(520px, calc(100vh - var(--player-bar-height) - var(--top-bar-height) - 24px));
   display: flex;
   flex-direction: column;
-  background: var(--bg-elevated);
+  background: var(--bg-glass-heavy);
+  backdrop-filter: none;
   border: 1px solid var(--decorative-border-light);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
   z-index: calc(var(--z-player) + 1);
   overflow: hidden;
-  animation: slideInRight 0.22s ease;
+  animation: slideInRight 0.2s ease;
 }
 
 .queue-panel__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 14px 14px 10px;
+  padding: 16px 16px 12px;
   border-bottom: 1px solid var(--decorative-border);
+  background: transparent;
 }
 
 .queue-panel__title {
   margin: 0;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .queue-panel__subtitle {
-  margin: 2px 0 0;
-  font-size: var(--font-size-xs);
+  margin: 4px 0 0;
+  font-size: 12px;
   color: var(--text-subdued);
 }
 
@@ -47,10 +49,10 @@
 }
 
 .queue-panel__empty {
-  padding: 32px 16px;
+  padding: 40px 16px;
   text-align: center;
   color: var(--text-subdued);
-  font-size: var(--font-size-sm);
+  font-size: 13px;
 }
 
 .queue-panel__item {
@@ -65,7 +67,8 @@
   color: var(--text-base);
   text-align: left;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  border: none;
+  transition: background 0.12s ease;
 }
 
 .queue-panel__item:hover {
@@ -73,16 +76,21 @@
 }
 
 .queue-panel__item--active {
-  background: var(--accent-primary-dim);
+  background: var(--bg-tinted-strong);
+  color: var(--text-base);
+}
+
+.queue-panel__item--active .queue-panel__name {
   color: var(--accent-primary);
 }
 
 .queue-panel__index {
-  font-size: var(--font-size-xs);
+  font-size: 12px;
   color: var(--text-subdued);
   display: flex;
   align-items: center;
   justify-content: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .queue-panel__item--active .queue-panel__index {
@@ -97,12 +105,12 @@
 }
 
 .queue-panel__name {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .queue-panel__artist {
-  font-size: var(--font-size-xs);
+  font-size: 12px;
   color: var(--text-subdued);
 }
 
@@ -112,7 +120,7 @@
   align-items: center;
   justify-content: center;
   color: var(--text-subdued);
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   padding: 4px;
 }
 

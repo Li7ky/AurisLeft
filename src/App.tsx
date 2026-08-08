@@ -44,7 +44,7 @@ function App() {
     void getNkiQqStatus()
       .then((s) => {
         if (!s.hasKey || !s.enabled) {
-          addToast('请到设置开启西瓜糖 QQ 解析（需密钥）', 'info');
+          addToast('请到设置开启内置 QQ 解析', 'info');
         }
       })
       .catch(() => undefined);
@@ -53,7 +53,7 @@ function App() {
     void desktopLoadSettings()
       .then(async (settings) => {
         if (settings?.onboarding?.seen) return;
-        addToast('欢迎使用 AurisLeft：搜索点歌即可，播放走西瓜糖 QQ 解析。', 'info');
+        addToast('欢迎使用左耳：搜索点歌即可，播放走内置 QQ 解析。', 'info');
         try {
           await markOnboardingSeen();
         } catch {

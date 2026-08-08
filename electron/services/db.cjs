@@ -39,6 +39,9 @@ class Database {
   constructor() {
     this.path = getDbPath();
     this.data = defaultDb();
+    this._writeChain = Promise.resolve();
+    this._saveTimer = null;
+    this._dirty = false;
     this.load();
   }
 
@@ -70,24 +73,78 @@ class Database {
     }
   }
 
-  /** Atomic write: temp file + rename to avoid corruption on crash */
+  /**
+   * 防抖落盘：300ms 内多次变更只写一次，避免切歌/拖音量/收藏时
+   * 反复全量 JSON.stringify + 同步写盘阻塞主进程事件循环。
+   */
   save() {
+    this._dirty = true;
+    if (this._saveTimer) return;
+    this._saveTimer = setTimeout(() => {
+      this._saveTimer = null;
+      void this._flush();
+    }, 300);
+  }
+
+  _flush() {
+    if (!this._dirty) return this._writeChain;
+    this._dirty = false;
     const dir = path.dirname(this.path);
-    fs.mkdirSync(dir, { recursive: true });
     const tmp = `${this.path}.${process.pid}.tmp`;
     this.data.schemaVersion = SCHEMA_VERSION;
     const payload = JSON.stringify(this.data, null, 2);
-    fs.writeFileSync(tmp, payload, 'utf8');
+    // 串行写入：上一次写完才允许下一次，避免并发写临时文件互相覆盖
+    this._writeChain = this._writeChain
+      .then(() => fs.promises.mkdir(dir, { recursive: true }))
+      .then(() => fs.promises.writeFile(tmp, payload, 'utf8'))
+      .then(async () => {
+        try {
+          await fs.promises.rename(tmp, this.path);
+        } catch {
+          // Windows: rename over existing can fail — fallback copy
+          await fs.promises.copyFile(tmp, this.path);
+          await fs.promises.unlink(tmp).catch(() => {});
+        }
+      })
+      .catch((e) => console.warn('[db] save failed', e?.message || e));
+    return this._writeChain;
+  }
+
+  /** 立即把当前数据写盘（导入备份后调用，保证立刻落盘） */
+  flush() {
+    if (this._saveTimer) {
+      clearTimeout(this._saveTimer);
+      this._saveTimer = null;
+    }
+    return this._flush();
+  }
+
+  /** 退出前同步兜底写盘，确保防抖窗口内的改动不丢 */
+  flushSync() {
+    if (this._saveTimer) {
+      clearTimeout(this._saveTimer);
+      this._saveTimer = null;
+    }
+    if (!this._dirty) return;
     try {
-      fs.renameSync(tmp, this.path);
-    } catch {
-      // Windows: rename over existing can fail — fallback copy
-      fs.copyFileSync(tmp, this.path);
+      const dir = path.dirname(this.path);
+      fs.mkdirSync(dir, { recursive: true });
+      const tmp = `${this.path}.${process.pid}.tmp`;
+      this.data.schemaVersion = SCHEMA_VERSION;
+      fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), 'utf8');
       try {
-        fs.unlinkSync(tmp);
+        fs.renameSync(tmp, this.path);
       } catch {
-        /* ignore */
+        fs.copyFileSync(tmp, this.path);
+        try {
+          fs.unlinkSync(tmp);
+        } catch {
+          /* ignore */
+        }
       }
+      this._dirty = false;
+    } catch (e) {
+      console.warn('[db] flushSync failed', e?.message || e);
     }
   }
 
@@ -127,7 +184,7 @@ class Database {
       throw new Error('备份文件无效');
     }
     if (payload.app && payload.app !== 'aurisleft') {
-      throw new Error('不是 AurisLeft 备份文件');
+      throw new Error('不是左耳备份文件');
     }
     const restored = [];
     const data = payload.data || payload;

@@ -1,30 +1,30 @@
+/* Spotify 式卡片：无硬描边，hover 抬亮 */
 .media-card {
-  background: var(--bg-elevated);
+  background: transparent;
   padding: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--decorative-border);
+  border-radius: var(--radius-lg);
+  border: none;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease;
+  transition: background 0.15s ease;
   display: flex;
   flex-direction: column;
   gap: 12px;
   position: relative;
+  box-shadow: none;
 }
 
 .media-card:hover {
-  background: var(--bg-highlight);
-  border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
-  transform: translateY(-2px);
+  background: var(--bg-tinted);
+  transform: none;
+  box-shadow: none;
+  border: none;
 }
 
 .media-card__cover-wrapper {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  border-radius: 10px;
+  border-radius: 6px;
   overflow: hidden;
   box-shadow: var(--shadow-md);
   background: var(--bg-highlight);
@@ -38,6 +38,11 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.35s ease;
+}
+
+.media-card:hover .media-card__cover {
+  transform: scale(1.04);
 }
 
 .media-card__cover--empty {
@@ -52,8 +57,8 @@
   position: absolute;
   bottom: 8px;
   right: 8px;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--accent-primary);
   color: var(--text-on-accent);
@@ -64,8 +69,8 @@
   cursor: pointer;
   opacity: 0;
   transform: translateY(8px);
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow-md);
+  transition: opacity 0.15s ease, transform 0.15s ease, filter 0.15s ease;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
   z-index: 2;
 }
 
@@ -79,19 +84,20 @@
 }
 
 .media-card__play-btn:hover {
-  transform: translateY(0) scale(1.05);
-  filter: brightness(1.08);
+  transform: translateY(0) scale(1.06);
+  filter: brightness(1.06);
 }
 
 .media-card__info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
+  padding: 0 2px;
 }
 
 .media-card__title {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;

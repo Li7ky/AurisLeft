@@ -88,8 +88,13 @@ export function useLocalMusic() {
 
   const removeDir = useCallback(
     async (dirPath: string) => {
-      await removeLocalMusicDir(dirPath);
-      await loadDirs();
+      try {
+        await removeLocalMusicDir(dirPath);
+        await loadDirs();
+        setScanProgress('已移除本地音乐目录');
+      } catch (error) {
+        setScanProgress(`移除目录失败：${error}`);
+      }
     },
     [loadDirs]
   );
