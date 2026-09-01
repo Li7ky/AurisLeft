@@ -39,7 +39,7 @@ function friendlyPlaybackMessage(message: string): string {
   if (/播放已切换|PLAY_SWITCHED|aborted/i.test(m)) {
     return '';
   }
-  // 洛雪脚本吓人原文（六音等）→ 正常说明
+  // 第三方脚本吓人原文 → 正常说明
   if (/数字专辑|无法获取播放链接|该渠道|GetMedia|无音源/i.test(m)) {
     return '当前渠道受限，已尝试其它音源。若仍失败请换一首';
   }
@@ -47,7 +47,7 @@ function friendlyPlaybackMessage(message: string): string {
     return '音源仍在初始化，请稍候几秒再播放';
   }
   if (/没有已开启|未开启音源|到设置页打开/i.test(m)) {
-    return '取链失败。请确认设置里已开启「内置 QQ 解析」或至少一个洛雪音源';
+    return '取链失败。请确认设置里已开启「内置 QQ 解析」';
   }
   if (/timeout|超时/i.test(m)) return '取链超时，请检查网络后重试';
   if (/vip|会员|付费|版权|受限|换源仍失败|暂时无法播放/i.test(m)) {
@@ -199,6 +199,8 @@ let fadingOut = false;
 /** 连点切歌：丢弃过期 play 结果 */
 let playRequestToken = 0;
 let lastResolveToastAt = 0;
+/** 浏览器预览模式（无 Electron IPC）示例音频提示只弹一次 */
+let webDemoNoticeShown = false;
 
 async function persistPlayerPrefs(partial: {
   volume?: number;
@@ -437,6 +439,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         }
       } else {
         url = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        // 浏览器预览模式：无 IPC，用示例音频兜底；只提示一次，避免每次切歌都弹
+        if (!webDemoNoticeShown) {
+          webDemoNoticeShown = true;
+          toast?.('浏览器预览模式：当前为示例音频，完整功能请使用桌面端', 'info');
+        }
       }
 
       if (token !== playRequestToken) return;
@@ -452,7 +459,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       await audioEngine.play(url);
       if (token !== playRequestToken) return;
 
-      failedAutoSkipSongKeys.clear();
+      // 成功播放：若本曲此前被标记失败（含降质重试），恢复其可播资格
+      failedAutoSkipSongKeys.delete(songKey(song));
       set({ playbackState: PlaybackState.Playing });
       updateMediaSession(get().currentSong || song, true);
       void pushDesktopLyric();
@@ -524,6 +532,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         currentSong
       ) {
         await get().play(currentSong, get().quality, toast, false);
+        return;
+      }
+      if (!currentSong) {
+        // 无曲目可恢复（如 stop 之后）：不静默失败，明确回 Idle 并提示
+        set({ playbackState: PlaybackState.Idle, progress: 0, duration: 0 });
+        toast?.('没有可恢复的播放，请先选择一首歌曲', 'info');
         return;
       }
       await audioEngine.resume();
@@ -713,7 +727,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       set({ queue: shuffled, currentIndex: 0, shuffle: true });
     } else if (currentSong) {
       const idx = queue.findIndex((s) => songKey(s) === songKey(currentSong));
-      set({ shuffle: false, currentIndex: idx >= 0 ? idx : 0 });
+      // 找不到当前曲时保持 -1（而非强指队首 0），避免索引与实际播放曲目错位
+      set({ shuffle: false, currentIndex: idx });
     } else {
       set({ shuffle: false });
     }
@@ -933,54 +948,46 @@ interface UnlistenFn {
 }
 
 let eventUnlisteners: UnlistenFn[] = [];
+/** 引用计数：多个调用方共享同一组监听，全部退订后才真正解绑 */
+let subscriberCount = 0;
 
 export function subscribePlayerEvents(): Promise<() => void> {
-  // 已订阅：返回真正能退订的清理函数，而不是空函数，
-  // 避免并发调用方拿到「假订阅」后既收不到事件也无法退订
-  if (eventUnlisteners.length > 0) {
-    return Promise.resolve(() => {
+  if (eventUnlisteners.length === 0) {
+    bindMediaSessionHandlers();
+
+    eventUnlisteners = [
+      desktopListen('hotkey-play-pause', () => {
+        const { playbackState, pause, resume, currentSong } = usePlayerStore.getState();
+        if (playbackState === PlaybackState.Playing) {
+          void pause();
+        } else if (playbackState === PlaybackState.Paused) {
+          void resume();
+        } else if (currentSong) {
+          void resume();
+        }
+      }),
+      desktopListen('hotkey-next', () => {
+        void usePlayerStore.getState().next();
+      }),
+      desktopListen('hotkey-prev', () => {
+        void usePlayerStore.getState().prev();
+      }),
+      desktopListen('sleep-timer-fired', () => {
+        void usePlayerStore.getState().fadeOutAndPause();
+      }),
+    ];
+  }
+
+  subscriberCount += 1;
+  let unsubscribed = false;
+  return Promise.resolve(() => {
+    if (unsubscribed) return;
+    unsubscribed = true;
+    subscriberCount -= 1;
+    if (subscriberCount <= 0) {
+      subscriberCount = 0;
       eventUnlisteners.forEach((fn) => fn());
       eventUnlisteners = [];
-    });
-  }
-  bindMediaSessionHandlers();
-
-  const unlistens: UnlistenFn[] = [];
-
-  unlistens.push(
-    desktopListen('hotkey-play-pause', () => {
-      const { playbackState, pause, resume, currentSong } = usePlayerStore.getState();
-      if (playbackState === PlaybackState.Playing) {
-        void pause();
-      } else if (playbackState === PlaybackState.Paused) {
-        void resume();
-      } else if (currentSong) {
-        void resume();
-      }
-    })
-  );
-
-  unlistens.push(
-    desktopListen('hotkey-next', () => {
-      void usePlayerStore.getState().next();
-    })
-  );
-
-  unlistens.push(
-    desktopListen('hotkey-prev', () => {
-      void usePlayerStore.getState().prev();
-    })
-  );
-
-  unlistens.push(
-    desktopListen('sleep-timer-fired', () => {
-      void usePlayerStore.getState().fadeOutAndPause();
-    })
-  );
-
-  eventUnlisteners = unlistens;
-  return Promise.resolve(() => {
-    eventUnlisteners.forEach((fn) => fn());
-    eventUnlisteners = [];
+    }
   });
 }

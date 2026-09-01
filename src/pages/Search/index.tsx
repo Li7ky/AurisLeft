@@ -13,7 +13,7 @@ export default function Search() {
   const setPage = useSearchStore((s) => s.setPage);
   const { addToast } = useToast();
 
-  const totalResults = Array.from(results.values()).reduce((sum, songs) => sum + songs.length, 0);
+  const totalResults = results.length;
 
   return (
     <div className="search-page">

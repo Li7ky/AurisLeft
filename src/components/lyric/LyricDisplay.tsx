@@ -13,6 +13,7 @@ export default function LyricDisplay({ lines, mode = 'inline' }: LyricDisplayPro
   const seek = usePlayerStore((s) => s.seek);
   const containerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const prevActiveIndexRef = useRef<number>(-1);
 
   const activeIndex = findActiveLineIndex(lines, progress);
 
@@ -33,9 +34,15 @@ export default function LyricDisplay({ lines, mode = 'inline' }: LyricDisplayPro
     const lineOffsetTop = lineEl.offsetTop;
     const targetScroll = lineOffsetTop - containerHeight / 2 + lineEl.clientHeight / 2;
 
+    // 跳跃 >1 行(切歌/seek)用 instant 定位,避免平滑滚动堆积卡顿;
+    // 相邻行用 smooth 保持自然过渡
+    const prev = prevActiveIndexRef.current;
+    const behavior: ScrollBehavior = prev >= 0 && Math.abs(activeIndex - prev) <= 1 ? 'smooth' : 'auto';
+    prevActiveIndexRef.current = activeIndex;
+
     container.scrollTo({
       top: targetScroll,
-      behavior: 'smooth',
+      behavior,
     });
   }, [activeIndex]);
 

@@ -111,6 +111,8 @@ class AudioEngine {
     this.playToken += 1;
     this.generation += 1;
     this.playPromiseActive = false;
+    // 取消进行中的 fadeOut/fadeIn,避免切歌后旧淡出仍压低新歌音量
+    this.fadeToken += 1;
     try {
       this.audio.pause();
     } catch {
@@ -237,15 +239,19 @@ class AudioEngine {
 
   /**
    * Gradual fade then pause (sleep timer). Restores engine volume to target after pause.
+   * 切歌/新 fade 开始时通过 fadeToken 自动作废,旧 fade 不再修改音量或 pause。
    */
   public async fadeOutAndPause(durationMs = 2000, restoreVolume = 0.8) {
+    const token = ++this.fadeToken;
     const start = this.audio.volume;
     const steps = 20;
     const stepMs = Math.max(40, Math.floor(durationMs / steps));
     for (let i = 1; i <= steps; i++) {
+      if (token !== this.fadeToken) return;
       this.audio.volume = Math.max(0, start * (1 - i / steps));
       await new Promise((r) => setTimeout(r, stepMs));
     }
+    if (token !== this.fadeToken) return;
     this.audio.pause();
     this.audio.volume = Math.min(1, Math.max(0, restoreVolume));
   }

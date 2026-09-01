@@ -20,6 +20,17 @@ const { pickMediaHeaders } = require('./services/mediaHeaders.cjs');
 const { getAppDataDir } = require('./services/appPaths.cjs');
 const logger = require('./services/logger.cjs');
 
+// 防 EPIPE：从已关闭的终端/管道启动（或父进程退出）时，写 stdout/stderr 会抛
+// "EPIPE: broken pipe"，未捕获就成为主进程的 Uncaught Exception 弹窗。
+// 给标准流挂空 error 处理器即可让 console.* 静默丢弃这类写失败。
+for (const s of [process.stdout, process.stderr, process.stdin]) {
+  if (s && typeof s.on === 'function') {
+    s.on('error', () => {
+      /* ignore broken pipe */
+    });
+  }
+}
+
 const isDev = !app.isPackaged;
 let mainWindow = null;
 let tray = null;
@@ -131,6 +142,22 @@ function isPrivateIpv6(ip) {
   return false;
 }
 
+/** IPv4 是否代理 Fake-IP 特征段（198.18.0.0/15） */
+function isProxyFakeIpv4(ip) {
+  const parts = String(ip).split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+    return false;
+  }
+  const [a, b] = parts;
+  return a === 198 && (b === 18 || b === 19);
+}
+
+/** IPv6 是否代理 Fake-IP 特征段（ULA fc00::/7，如 Clash 的 fdfe:dcba::/48） */
+function isProxyFakeIpv6(ip) {
+  const lower = String(ip).toLowerCase();
+  return /^f[cd]/.test(lower);
+}
+
 /** hostname -> 是否解析为安全的公网地址（5 分钟缓存） */
 const dnsSafeCache = new Map();
 function assertPublicTarget(target) {
@@ -156,8 +183,11 @@ function assertPublicTarget(target) {
       if (!err && Array.isArray(addresses) && addresses.length) {
         ok = addresses.every((addr) => {
           const ip = String(addr.address);
-          if (nodeNet.isIP(ip) === 4) return !isPrivateIpv4(ip);
-          if (nodeNet.isIP(ip) === 6) return !isPrivateIpv6(ip);
+          // 代理 Fake-IP（198.18/15、ULA）不算拦截项：
+          // 开着 Clash/mihomo 等 TUN 代理时，系统 DNS 会把所有域名解析到 Fake-IP，
+          // 真实连接由代理接管转发，CDN 域名照常可播，且不构成访问内网的 SSRF 风险。
+          if (nodeNet.isIP(ip) === 4) return !isPrivateIpv4(ip) || isProxyFakeIpv4(ip);
+          if (nodeNet.isIP(ip) === 6) return !isPrivateIpv6(ip) || isProxyFakeIpv6(ip);
           return false;
         });
       }

@@ -1,6 +1,6 @@
 /**
- * 多平台曲库搜索（对齐洛雪：wy/kw/kg/tx）
- * 仅负责搜出带平台 ID 的歌曲元数据；取链仍走洛雪脚本 musicUrl。
+ * 多平台曲库搜索（wy/kw/kg/tx）
+ * 仅负责搜出带平台 ID 的歌曲元数据；取链走西瓜糖/native。
  */
 
 const PLATFORM_LABEL = {
@@ -261,7 +261,7 @@ async function searchKugou(keyword, page = 1) {
 /** QQ 音乐 */
 async function searchQQ(keyword, page = 1) {
   const url =
-    `https://c.y.qq.com/soso/fcgi-bin/client_search_cp?p=${page}&n=30` +
+    `https://c.y.qq.com/soso/fcgi-bin/client_search_cp?p=${page}&n=60` +
     `&w=${encodeURIComponent(keyword)}&format=json&inCharset=utf-8&outCharset=utf-8`;
   const text = await httpGet(url, 12000, {
     Referer: 'https://y.qq.com/',
@@ -306,7 +306,7 @@ async function searchQQ(keyword, page = 1) {
       };
     })
     .filter((s) => s.songId !== 'tx:');
-  return { songs: rankByKeyword(songs, keyword), total, page, perPage: 30, platform: 'tx' };
+  return { songs: rankByKeyword(songs, keyword), total, page, perPage: 60, platform: 'tx' };
 }
 
 /**
@@ -329,6 +329,15 @@ function rankByKeyword(songs, keyword) {
     // 惩罚 remix / 翻唱 / DJ / live 片段
     if (/remix|翻唱|dj|cover|伴奏|纯音乐|片段|live|改编|montagem/i.test(name + artist)) {
       sc -= 30;
+    }
+    // 重罚「变体后缀」：钢琴版/柔情版/伴奏版/翻唱版 等不是用户想听的原曲
+    if (/钢琴版|柔情版|伴奏版|翻唱版|纯音乐版|钢琴曲|轻音乐|纯钢琴|抖音版|慢速|加速|remix|cover/i.test(name)) {
+      sc -= 60;
+    }
+    // 关键词含歌手名时，歌手完全不符 → 大概率是翻唱（RyaVocal 顶掉周杰伦那种）
+    const artistTokens = tokens.filter((t) => t.length >= 2 && artist.length && !artist.includes(t));
+    if (tokens.length >= 2 && artistTokens.length === tokens.length) {
+      sc -= 45; // 所有词都不在歌手里 → 歌手完全对不上
     }
     if (s.playableHint === 'maybe_vip') sc -= 2;
     if (s.coverUrl) sc += 1;
@@ -389,11 +398,21 @@ async function findAlternatives(name, artist, excludePlatform, limit = 5) {
       .replace(/\s+/g, '');
     const sa = String(song.artist || '').toLowerCase();
     let score = 0;
+    const nameHit = sn === nameL || sn.includes(nameL) || (nameL && nameL.includes(sn));
     if (sn === nameL) score += 50;
-    else if (sn.includes(nameL) || nameL.includes(sn)) score += 30;
+    else if (sn.includes(nameL) || (nameL && nameL.includes(sn))) score += 30;
     else score -= 20;
-    if (artistCore && (sa.includes(artistCore) || artistCore.includes(sa.split(/[\/、,&]/)[0]))) {
-      score += 20;
+    const artistHit = Boolean(
+      artistCore &&
+        sa &&
+        (sa.includes(artistCore) || artistCore.includes(sa.split(/[\/、,&]/)[0].trim()))
+    );
+    if (artistHit) score += 20;
+    // 歌名同名但歌手完全不同 → 大概率翻唱/同名不相关
+    if (artistCore && nameHit && !artistHit) score -= 60;
+    // 疑似变体（串烧/搞笑/伴奏/Live）降权，别让它们顶掉原曲
+    if (/串烧|搞笑|伴奏|完整版(?!$)|live|演唱会|dj|remix|钢琴|纯音乐|翻唱|cover/i.test(sn)) {
+      score -= 25;
     }
     // 平台偏好
     const pr = { kw: 8, kg: 6, tx: 4, wy: 0 };

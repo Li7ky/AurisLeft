@@ -51,8 +51,6 @@ function createAppState() {
   const db = new Database();
   const sourceMgr = new SourceManager();
   const sleepTimer = new SleepTimer();
-  // 已改用西瓜糖 QQ 解析，不再启动时预热洛雪脚本（加快开机）
-  // 若以后要恢复洛雪：void sourceMgr.ensureLxBuiltin()
   return { db, sourceMgr, sleepTimer };
 }
 
@@ -104,14 +102,7 @@ function registerHandlers(ipcMain, getMainWindow, state) {
 
   handle('register_js_source', async ({ code }) => sourceMgr.registerJsSource(code));
   handle('list_sources', async () => sourceMgr.listSources({ includeHidden: false }));
-  handle('get_lx_status', async () => sourceMgr.getLxStatus());
   handle('toggle_source', async ({ sourceId }) => sourceMgr.toggleSource(sourceId));
-  handle('toggle_lx_source', async ({ sourceId, enabled }) => {
-    if (typeof enabled === 'boolean') {
-      return sourceMgr.setLxSourceEnabled(sourceId, enabled);
-    }
-    return sourceMgr.toggleLxSource(sourceId);
-  });
   handle('remove_source', async ({ sourceId }) => {
     sourceMgr.removeSource(sourceId);
   });
@@ -127,7 +118,7 @@ function registerHandlers(ipcMain, getMainWindow, state) {
     const kw = String(keyword || '').trim();
     const pg = page || 1;
     if (!kw) {
-      return { songs: [], total: 0, page: pg, perPage: 30, hasMore: false };
+      return { songs: [], total: 0, page: pg, perPage: 60, hasMore: false };
     }
 
     let songs = [];
@@ -170,7 +161,8 @@ function registerHandlers(ipcMain, getMainWindow, state) {
     }
 
     const filtered = filterSearchRelevance(songs, kw);
-    const hasMore = pageLen >= 25 || pg * 30 < total;
+    // QQ perPage=60,pageLen 不足 60 即末页;pg*60 < total 也是有下一页
+    const hasMore = pageLen >= 60 || pg * 60 < total;
 
     // 后台预热前几首取链缓存 → 点播放几乎秒开
     try {
@@ -184,7 +176,7 @@ function registerHandlers(ipcMain, getMainWindow, state) {
       songs: filtered,
       total: total || filtered.length,
       page: pg,
-      perPage: 30,
+      perPage: 60,
       hasMore,
     };
   });
@@ -264,14 +256,6 @@ function registerHandlers(ipcMain, getMainWindow, state) {
       }
     } catch {
       /* fall through */
-    }
-
-    // 有西瓜糖 QQ 时不必死等洛雪
-    if (!nkiQq.isEnabled()) {
-      const lx = await sourceMgr.waitLxReady(15000);
-      console.log(
-        `[play_song] LX init ready=${lx.ready} count=${lx.count} finished=${lx.finished} waited=${lx.waitedMs}ms`
-      );
     }
 
     if (gen !== playSongGen) throw switched();

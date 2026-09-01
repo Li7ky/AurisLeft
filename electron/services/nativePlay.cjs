@@ -44,6 +44,7 @@ function pickUrlFromJson(data) {
 
 /**
  * Soft-probe: Range GET first 2KB, reject HTML error pages.
+ * 大文件(>2MB)且服务器忽略 Range 时不再下载到内存,直接按 URL magic 接受。
  */
 async function probePlayableUrl(url) {
   if (!url || !/^https?:\/\//i.test(String(url))) return null;
@@ -63,7 +64,32 @@ async function probePlayableUrl(url) {
     if (/404|\/html|error/i.test(finalUrl) && !/\.mp3|\.m4a|\.flac/i.test(finalUrl)) {
       // keep going, check body
     }
-    const buf = Buffer.from(await res.arrayBuffer());
+
+    // 服务器忽略 Range 返回 200 + 大文件 → 流式读前 8KB 后立即 cancel,
+    // 避免把整个 FLAC/MP3 下载到内存(旧实现在此炸内存)
+    const contentLength = Number(res.headers.get('content-length') || 0);
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    const isAudioCt =
+      ct.includes('audio') || ct.includes('octet-stream') || ct.includes('mpeg') || ct.includes('mp3');
+
+    // 流式读前 8KB 判断 magic bytes
+    let buf = Buffer.alloc(0);
+    const reader = res.body?.getReader?.();
+    const MAX = 8192;
+    if (reader) {
+      while (buf.length < MAX) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf = Buffer.concat([buf, Buffer.from(value)]);
+        if (buf.length >= 8) break; // magic bytes 够了
+      }
+      try { await reader.cancel(); } catch { /* ignore */ }
+    } else {
+      // 退化:body 不可流式,但限制只取前 8KB(arrayBuffer 在 Node 已是完整 buffer,
+      // 但 Range 已请求 2KB,通常 OK)
+      buf = Buffer.from(await res.arrayBuffer());
+    }
+
     if (buf.length < 4) {
       // empty with Range fail — accept CDN-looking URL
       if (/\.mp3|\.m4a|\.flac|kuwo|kugou|music\.126|qqmusic|myqcloud/i.test(target)) {
@@ -81,14 +107,14 @@ async function probePlayableUrl(url) {
     const isOgg = buf.slice(0, 4).toString('ascii') === 'OggS';
     const isFtyp = buf.slice(4, 8).toString('ascii') === 'ftyp';
     if (isId3 || isMp3 || isFlac || isOgg || isFtyp) return res.url || target;
-    const ct = (res.headers.get('content-type') || '').toLowerCase();
-    if (ct.includes('audio') || ct.includes('octet-stream') || ct.includes('mpeg')) {
-      return res.url || target;
-    }
+    if (isAudioCt) return res.url || target;
     if (/\.mp3|\.m4a|\.flac|\.aac/i.test(res.url || target)) return res.url || target;
-    // Kuwo/kg CDN paths often work even without classic magic bytes after Range
-    if (/kuwo\.cn|kugou|music\.126|gtimg|myqcloud|qqmusic/i.test(res.url || target)) {
-      return res.url || target;
+    // 大文件 + 可信 CDN 路径 → 直接接受(已读过 magic bytes,无有效信号也放行,
+    // 让播放器自己尝试解码;避免对支持 Range 的 CDN 反复打 whole-file probe)
+    if (contentLength > 2 * 1024 * 1024 || res.status === 206) {
+      if (/kuwo\.cn|kugou|music\.126|gtimg|myqcloud|qqmusic/i.test(res.url || target)) {
+        return res.url || target;
+      }
     }
     return null;
   } catch {

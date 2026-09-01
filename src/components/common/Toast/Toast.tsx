@@ -22,6 +22,8 @@ export const ToastContext = createContext<ToastContextValue>({
 });
 
 const DEFAULT_DURATION = 3000;
+const MAX_TOASTS = 5;
+let toastSeq = 0;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -32,8 +34,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const addToast = useCallback(
     (message: string, type: ToastType = 'info') => {
-      const id = Date.now();
-      setToasts((prev) => [...prev, { id, message, type }]);
+      const id = ++toastSeq;
+      setToasts((prev) => {
+        const next = [...prev, { id, message, type }];
+        return next.length > MAX_TOASTS ? next.slice(next.length - MAX_TOASTS) : next;
+      });
       setTimeout(() => removeToast(id), DEFAULT_DURATION);
     },
     [removeToast]

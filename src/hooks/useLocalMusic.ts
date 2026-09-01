@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   scanLocalMusic,
   addLocalMusicDir,
@@ -18,17 +18,27 @@ export function useLocalMusic() {
   const [showDirDialog, setShowDirDialog] = useState(false);
   const [dirInput, setDirInput] = useState('');
 
+  // 卸载保护:扫描是异步 IPC,组件卸载后不再 setState
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const scan = useCallback(async () => {
     setScanning(true);
     setScanProgress('正在扫描本地音乐…');
     try {
       const songs = await scanLocalMusic();
+      if (!mountedRef.current) return;
       setLocalSongs(songs);
       setScanProgress(`扫描完成，找到 ${songs.length} 首歌曲`);
     } catch (error) {
+      if (!mountedRef.current) return;
       setScanProgress(`扫描失败: ${error}`);
     } finally {
-      setScanning(false);
+      if (mountedRef.current) setScanning(false);
     }
   }, []);
 

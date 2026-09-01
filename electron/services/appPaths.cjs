@@ -28,11 +28,6 @@ function getSourcesPath() {
   return path.join(getAppDataDir(), 'sources.json');
 }
 
-/** 洛雪兼容音源开关偏好 */
-function getLxPrefsPath() {
-  return path.join(getAppDataDir(), 'lx-source-prefs.json');
-}
-
 function getBackupsDir() {
   const dir = path.join(getAppDataDir(), 'backups');
   fs.mkdirSync(dir, { recursive: true });
@@ -45,6 +40,5 @@ module.exports = {
   getLogsDir,
   getDbPath,
   getSourcesPath,
-  getLxPrefsPath,
   getBackupsDir,
 };
