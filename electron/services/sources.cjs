@@ -1,243 +1,21 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { getSourcesPath, getLxPrefsPath } = require('./appPaths.cjs');
-const { LxSourceEngine } = require('./lxRuntime.cjs');
+const { getSourcesPath } = require('./appPaths.cjs');
 const catalogSearch = require('./catalogSearch.cjs');
 const nativePlay = require('./nativePlay.cjs');
 const nkiQq = require('./nkiQq.cjs');
 
 /**
- * 来自 https://github.com/pdone/lx-music-source 的内置洛雪兼容脚本
- * 野花（flower）优先。
- */
-// juhe 远端常初始化失败，不参与内置加载（用户仍可自行导入）
-const BUILTIN_LX_FILES = [
-  'flower.js',
-  'huibq.js',
-  'ikun.js',
-  'grass.js',
-  'lx.js',
-  'sixyin.js',
-];
-
-const LX_REMOTE_SOURCES = [
-  { id: 'flower', path: 'flower/latest.js' },
-  { id: 'huibq', path: 'huibq/latest.js' },
-  { id: 'ikun', path: 'ikun/latest.js' },
-  // juhe 远端经常 init 失败，不自动拉取
-  { id: 'grass', path: 'grass/latest.js' },
-  { id: 'lx', path: 'lx/latest.js' },
-  { id: 'sixyin', path: 'sixyin/latest.js' },
-];
-
-/**
- * 脚本下载镜像（来自 pdone/lx-music-source README）
- * 原始: raw.githubusercontent.com/...
- * 加速: ghproxy.net/raw.githubusercontent.com/...
- * 其它加速站：把 ghproxy.net/ 换成 gh.llkk.cc / github.moeyy.xyz 等
- */
-const LX_CDN_PREFIXES = [
-  // 官方推荐加速（ghproxy）
-  'https://ghproxy.net/raw.githubusercontent.com/pdone/lx-music-source/main/',
-  'https://ghproxy.net/https://raw.githubusercontent.com/pdone/lx-music-source/main/',
-  // README「其他加速站点」
-  'https://gh.llkk.cc/raw.githubusercontent.com/pdone/lx-music-source/main/',
-  'https://gh.llkk.cc/https://raw.githubusercontent.com/pdone/lx-music-source/main/',
-  'https://github.moeyy.xyz/raw.githubusercontent.com/pdone/lx-music-source/main/',
-  'https://github.moeyy.xyz/https://raw.githubusercontent.com/pdone/lx-music-source/main/',
-  'https://ghproxy.cn/raw.githubusercontent.com/pdone/lx-music-source/main/',
-  'https://ghproxy.cn/https://raw.githubusercontent.com/pdone/lx-music-source/main/',
-  'https://gh.api.99988866.xyz/raw.githubusercontent.com/pdone/lx-music-source/main/',
-  'https://gh.api.99988866.xyz/https://raw.githubusercontent.com/pdone/lx-music-source/main/',
-  'https://ghp.ci/raw.githubusercontent.com/pdone/lx-music-source/main/',
-  'https://ghp.ci/https://raw.githubusercontent.com/pdone/lx-music-source/main/',
-  // jsDelivr / 原始 GitHub
-  'https://cdn.jsdelivr.net/gh/pdone/lx-music-source@main/',
-  'https://fastly.jsdelivr.net/gh/pdone/lx-music-source@main/',
-  'https://raw.githubusercontent.com/pdone/lx-music-source/main/',
-];
-
-/**
  * Source manager for Electron.
- * - 曲库搜索：内部使用网易云公开接口（不再作为可管理音源）
- * - 播放取链：内置洛雪脚本 + 用户导入 JSON/JS（可单独开关）
+ * - 曲库搜索：QQ 官方接口（一次请求自带封面/时长/专辑）
+ * - 播放取链：西瓜糖 QQ 解析 + 用户导入 JSON 音源
  */
 class SourceManager {
   constructor() {
     /** @type {Map<string, any>} */
     this.sources = new Map();
     this.loaded = false;
-    /** @type {LxSourceEngine} */
-    this.lxEngine = new LxSourceEngine();
-    /** @type {Promise<any> | null} */
-    this.lxReady = null;
-    this.lxInitFinished = false;
-    this.lxInitError = null;
-    /** @type {Record<string, boolean>} */
-    this.lxPrefs = this.loadLxPrefs();
-  }
-
-  lxAssetsDir() {
-    return path.join(__dirname, '..', 'assets', 'lx-sources');
-  }
-
-  loadLxPrefs() {
-    try {
-      const p = getLxPrefsPath();
-      if (!fs.existsSync(p)) return {};
-      const raw = fs.readFileSync(p, 'utf8');
-      const data = JSON.parse(raw);
-      return data && typeof data === 'object' ? data.enabled || data : {};
-    } catch {
-      return {};
-    }
-  }
-
-  saveLxPrefs() {
-    const enabled = {};
-    for (const h of this.lxEngine.hosts) {
-      enabled[h.id] = h.enabled !== false;
-    }
-    // 也按脚本 key 存一份，方便重载后匹配
-    for (const h of this.lxEngine.hosts) {
-      const key = h.id.replace(/^builtin-lx-/, '');
-      enabled[`builtin-lx-${key}`] = h.enabled !== false;
-    }
-    this.lxPrefs = enabled;
-    try {
-      fs.writeFileSync(
-        getLxPrefsPath(),
-        JSON.stringify({ enabled, updatedAt: Date.now() }, null, 2),
-        'utf8'
-      );
-    } catch (e) {
-      console.warn('[sources] save lx prefs failed', e.message || e);
-    }
-  }
-
-  isLxEnabled(id) {
-    if (Object.prototype.hasOwnProperty.call(this.lxPrefs, id)) {
-      return this.lxPrefs[id] !== false;
-    }
-    return true; // 默认开启
-  }
-
-  /**
-   * 加载并完整初始化内置 LX 脚本（只跑一轮；播放前必须 await）
-   */
-  async ensureLxBuiltin() {
-    if (this.lxReady) return this.lxReady;
-    this.lxReady = (async () => {
-      console.log('[sources] 开始初始化洛雪兼容音源…');
-      this.lxPrefs = this.loadLxPrefs();
-      const dir = this.lxAssetsDir();
-      fs.mkdirSync(dir, { recursive: true });
-
-      for (const file of BUILTIN_LX_FILES) {
-        const full = path.join(dir, file);
-        try {
-          if (!fs.existsSync(full)) {
-            console.warn('[sources] missing builtin lx script', full);
-            continue;
-          }
-          const code = fs.readFileSync(full, 'utf8');
-          if (!code || code.length < 100) {
-            console.warn('[sources] skip empty lx script', file);
-            continue;
-          }
-          const id = `builtin-lx-${path.basename(file, '.js')}`;
-          console.log(`[sources] 初始化 ${file} …`);
-          await this.lxEngine.loadScript(code, {
-            id,
-            hidden: false,
-            enabled: this.isLxEnabled(id),
-          });
-        } catch (e) {
-          console.warn('[sources] load/init lx failed', file, e.message || e);
-        }
-      }
-
-      const hosts = this.lxEngine.listHosts({ includeHidden: true, onlyReady: true });
-      this.lxInitFinished = true;
-      this.saveLxPrefs();
-      console.log(
-        `[sources] 音源初始化完成: ${hosts.length} 套就绪 — ${hosts
-          .map((h) => `${h.name}${h.enabled === false ? '(关)' : ''}`)
-          .join(', ') || 'none'}`
-      );
-
-      this.refreshLxScriptsFromRemote().catch((e) =>
-        console.warn('[sources] lx remote refresh skip', e.message || e)
-      );
-
-      return hosts;
-    })().catch((e) => {
-      this.lxInitFinished = true;
-      this.lxInitError = e instanceof Error ? e.message : String(e);
-      console.warn('[sources] LX init pipeline failed', this.lxInitError);
-      return [];
-    });
-    return this.lxReady;
-  }
-
-  /**
-   * 播放前调用：等到初始化结束（或超时）
-   */
-  async waitLxReady(timeoutMs = 25000) {
-    const start = Date.now();
-    const p = this.ensureLxBuiltin();
-    await Promise.race([
-      p,
-      new Promise((resolve) => setTimeout(resolve, timeoutMs)),
-    ]);
-    const ready = this.lxEngine.readyCount();
-    return {
-      ready: ready > 0,
-      count: ready,
-      finished: this.lxInitFinished,
-      waitedMs: Date.now() - start,
-      error: this.lxInitError,
-    };
-  }
-
-  async refreshLxScriptsFromRemote() {
-    let updated = 0;
-    for (const item of LX_REMOTE_SOURCES) {
-      let code = null;
-      for (const prefix of LX_CDN_PREFIXES) {
-        try {
-          code = await httpGet(prefix + item.path, 15000);
-          // 混淆脚本不一定含明文 EVENT_NAMES
-          if (code && code.length > 200) break;
-          code = null;
-        } catch {
-          code = null;
-        }
-      }
-      if (!code) continue;
-      try {
-        const id = `builtin-lx-${item.id}`;
-        await this.lxEngine.loadScript(code, {
-          id,
-          hidden: false,
-          enabled: this.isLxEnabled(id),
-        });
-        try {
-          fs.writeFileSync(path.join(this.lxAssetsDir(), `${item.id}.js`), code, 'utf8');
-        } catch {
-          /* ignore */
-        }
-        updated += 1;
-      } catch (e) {
-        console.warn('[sources] remote load', item.id, e.message || e);
-      }
-    }
-    if (updated) {
-      console.log(`[sources] refreshed ${updated} LX script(s) from remote`);
-      this.saveLxPrefs();
-    }
-    return updated > 0;
   }
 
   /** 用户导入的 JSON/JS 音源（不含已删除的内置网易云） */
@@ -245,45 +23,6 @@ class SourceManager {
     return Array.from(this.sources.values())
       .map((s) => s.info)
       .filter((info) => includeHidden || !info.hidden);
-  }
-
-  /** 内置洛雪音源状态 + 开关 */
-  async getLxStatus() {
-    if (!this.lxReady) void this.ensureLxBuiltin();
-    const hosts = this.lxEngine.hosts.map((h) => ({
-      id: h.id,
-      name: h.header.name,
-      version: h.header.version,
-      ready: Boolean(h.ready),
-      enabled: h.enabled !== false,
-      platforms: Object.keys(h.sources || {}),
-      hidden: Boolean(h.hidden),
-    }));
-    const enabledReady = hosts.filter((h) => h.ready && h.enabled).length;
-    return {
-      enabled: enabledReady > 0,
-      count: enabledReady,
-      total: hosts.length,
-      ready: hosts.some((h) => h.ready) && this.lxInitFinished,
-      initializing: Boolean(this.lxReady) && !this.lxInitFinished,
-      names: hosts.filter((h) => h.ready && h.enabled).map((h) => h.name),
-      hosts,
-    };
-  }
-
-  /** 开关某个洛雪内置音源 */
-  toggleLxSource(sourceId) {
-    const info = this.lxEngine.toggleEnabled(sourceId);
-    if (!info) throw new Error(`音源不存在: ${sourceId}`);
-    this.saveLxPrefs();
-    return info;
-  }
-
-  setLxSourceEnabled(sourceId, enabled) {
-    const info = this.lxEngine.setEnabled(sourceId, enabled);
-    if (!info) throw new Error(`音源不存在: ${sourceId}`);
-    this.saveLxPrefs();
-    return info;
   }
 
   registerJsonSource(name, apiBase, endpoints = {}) {
@@ -327,18 +66,10 @@ class SourceManager {
   }
 
   removeSource(sourceId) {
-    // 洛雪内置源不允许删除，只能开关
-    if (String(sourceId).startsWith('builtin-lx-')) {
-      throw new Error('内置洛雪音源不可删除，可在设置中关闭');
-    }
     if (!this.sources.delete(sourceId)) throw new Error(`Source not found: ${sourceId}`);
   }
 
   toggleSource(sourceId) {
-    // 洛雪内置
-    if (String(sourceId).startsWith('builtin-lx-') || this.lxEngine.hosts.some((h) => h.id === sourceId)) {
-      return this.toggleLxSource(sourceId);
-    }
     const src = this.sources.get(sourceId);
     if (!src) throw new Error(`Source not found: ${sourceId}`);
     src.info.enabled = !src.info.enabled;
@@ -387,7 +118,7 @@ class SourceManager {
   }
 
   /**
-   * 洛雪式：并行搜 网易/酷我/酷狗/QQ，结果按平台分组返回
+   * 多平台并行搜索：网易/酷我/酷狗/QQ，结果按平台分组返回
    */
   async searchAll(keyword, page = 1, timeoutMs = 8000) {
     const batches = await catalogSearch.searchAllPlatforms(
@@ -420,7 +151,7 @@ class SourceManager {
    * 策略：
    *  1) 西瓜糖 QQ 解析（mid / 歌名搜索，对付费曲很强）
    *  2) 酷我原生 antiserver
-   *  3) 原平台原生 + LX
+   *  3) 原平台原生直链
    *  4) 换源酷我/酷狗
    *  5) 网易公开 API
    */
@@ -460,17 +191,6 @@ class SourceManager {
       throw new Error(friendlyPlayError(lastErr?.message || '用户音源取链失败'));
     }
 
-    if (src?.kind === 'js' && src.code) {
-      try {
-        await this.lxEngine.loadScript(src.code, {
-          id: src.info.id,
-          hidden: true,
-        });
-      } catch {
-        /* ignore */
-      }
-    }
-
     const primary = detectLxPlatform(songId, sourceId || songMeta.platform || songMeta.source);
     const maybeVip =
       songMeta.playableHint === 'maybe_vip' ||
@@ -479,19 +199,6 @@ class SourceManager {
       songMeta.fee === 8;
     const trackKey = `${primary}:${songId}:${songMeta.name || ''}`;
     const errors = [];
-    // 默认不拉洛雪：设置页已去掉洛雪，优先 QQ。仅 QQ/酷我都失败时才懒加载 LX。
-    let wait = { ready: this.lxEngine.readyCount() > 0, count: this.lxEngine.readyCount(), finished: true, waitedMs: 0 };
-    let lxWaitPromise = null;
-    const ensureLx = async (timeoutMs = 12000) => {
-      if (wait.ready && this.lxEngine.readyCount() > 0) return wait;
-      if (!lxWaitPromise) {
-        lxWaitPromise = this.waitLxReady(timeoutMs).then((w) => {
-          wait = w;
-          return w;
-        });
-      }
-      return lxWaitPromise;
-    };
 
     const accept = async (url, label) => {
       if (!url || isLikelyTrialUrl(url)) return null;
@@ -523,7 +230,7 @@ class SourceManager {
       return null;
     };
 
-    /** 单平台：原生优先，再 LX（避免先吃到「数字专辑」） */
+    /** 单平台：原生直链（酷我/酷狗） */
     const tryPlatform = async (platform, musicInfo, label) => {
       try {
         const nativeUrl = await nativePlay.resolveNative(
@@ -536,29 +243,6 @@ class SourceManager {
         if (ok) return ok;
       } catch (e) {
         errors.push(`${label}/native: ${shortErr(e)}`);
-      }
-
-      // 仅在需要时懒加载洛雪（正常听歌不会走到这里）
-      try {
-        await ensureLx(10000);
-      } catch {
-        /* ignore */
-      }
-      if (wait.ready || this.lxEngine.readyCount() > 0) {
-        try {
-          const qTry = maybeVip && /flac|hires/i.test(String(qPreferred)) ? '320k' : qPreferred;
-          const lxUrl = await this.lxEngine.resolveMusicUrl(platform, musicInfo, qTry);
-          const ok = await accept(lxUrl, `lx:${label}`);
-          if (ok) return ok;
-          if (lxUrl && isLikelyTrialUrl(lxUrl)) {
-            errors.push(`${label}: 疑似试听片段`);
-          }
-        } catch (e) {
-          const msg = shortErr(e);
-          if (!/数字专辑|无法获取播放链接|该渠道|soft-fail|暂无可用直链/i.test(msg)) {
-            errors.push(`${label}: ${msg}`);
-          }
-        }
       }
       return null;
     };
@@ -593,9 +277,11 @@ class SourceManager {
           .catch(() => [])
       : Promise.resolve([]);
 
-    try {
-      if (nkiQq.isEnabled()) {
-        console.log('[play] try nki-qq first…', songMeta.name || songId);
+    // 并行开跑：QQ 解析、酷我原生直取、网易兜底同时起跑，
+    // 按优先级采纳（QQ → 酷我原生 → 网易），先出链先赢。
+    const nkiPromise = (async () => {
+      if (!nkiQq.isEnabled()) return null;
+      try {
         const nkiRes = await nkiQq.resolvePlayUrl({
           mid: mids[0],
           mids: mids.slice(0, 2),
@@ -605,52 +291,95 @@ class SourceManager {
         });
         const nkiUrl =
           typeof nkiRes === 'string' ? nkiRes : nkiRes && nkiRes.url ? nkiRes.url : null;
-        const ok = await accept(nkiUrl, 'nki-qq');
-        if (ok) {
-          console.log('[play] 西瓜糖 QQ 解析成功');
-          return ok;
-        }
-        console.warn('[play] nki-qq 未命中，继续其它通道');
+        return await accept(nkiUrl, 'nki-qq');
+      } catch (e) {
+        if (e?.code === 'PLAY_SWITCHED' || /播放已切换/i.test(e?.message || '')) throw e;
+        console.warn('[play] nki-qq error', e.message || e);
+        errors.push(`nki-qq: ${shortErr(e)}`);
+        return null;
       }
-    } catch (e) {
-      if (e?.code === 'PLAY_SWITCHED' || /播放已切换/i.test(e?.message || '')) throw e;
-      console.warn('[play] nki-qq error', e.message || e);
-      errors.push(`nki-qq: ${shortErr(e)}`);
+    })();
+
+    const kwPrimaryPromise =
+      primary === 'kw'
+        ? nativePlay
+            .resolveKuwo(
+              String(songMeta.songmid || '').replace(/^kw[:/]/i, '') || songId,
+              qPreferred
+            )
+            .catch(() => null)
+        : Promise.resolve(null);
+
+    const neteasePromise =
+      primary === 'wy' || extractNeteaseId(songId)
+        ? resolveNeteasePlayUrl(songId, qPreferred).catch(() => null)
+        : Promise.resolve(null);
+
+    // 按优先级采纳：QQ → 酷我原生 → 网易；先出链先赢
+    const nkiHit = await nkiPromise;
+    if (nkiHit) {
+      console.log('[play] 西瓜糖 QQ 解析成功');
+      return nkiHit;
+    }
+    console.warn('[play] nki-qq 未命中，继续其它通道');
+
+    const kwPrimaryUrl = await kwPrimaryPromise;
+    if (kwPrimaryUrl) {
+      const ok = await accept(kwPrimaryUrl, 'native:kw-primary');
+      if (ok) {
+        console.log('[play] 酷我原生直取成功 primary=kw');
+        return ok;
+      }
     }
 
     // 0b) 酷我快路径（搜索已在 QQ 解析期间并行完成）
     try {
       const kwBag = await kwDirectPromise;
-      // 优先歌名匹配更紧的结果，避免连切时命中同曲不同现场版/脏链
-      const kwSongs = [...(kwBag.songs || [])].sort((a, b) => {
-        const score = (s) => {
-          const sn = String(s.name || '').toLowerCase();
+      const wantK = String(songMeta.name || '').toLowerCase().replace(/\s+/g, '');
+      const artK = String(songMeta.artist || '')
+        .toLowerCase()
+        .split(/[\/、,&|]/)[0]
+        .trim();
+      // 评分排序：歌名同名但歌手明显不符 → 翻唱/串烧/现场版，重罚，
+      // 避免"Always Online"(林俊杰) 被酷我同名翻唱"小·钻风"顶掉原曲。
+      const kwScored = [...(kwBag.songs || [])]
+        .map((s) => {
+          const sn = String(s.name || '').toLowerCase().replace(/\s+/g, '');
           const sa = String(s.artist || '').toLowerCase();
-          const want = String(songMeta.name || '').toLowerCase();
-          const art = String(songMeta.artist || '').toLowerCase();
           let sc = 0;
-          if (sn === want) sc += 50;
-          else if (want && sn.includes(want)) sc += 25;
-          if (art && sa.includes(art.split(/[\/、,&|]/)[0])) sc += 30;
-          if (/live|演唱会|伴奏|片段|dj|remix/i.test(sn)) sc -= 20;
-          return sc;
-        };
-        return score(b) - score(a);
-      });
-      for (const song of kwSongs.slice(0, 3)) {
-        const rid = String(song.songId || '').replace(/^kw[:/]/i, '');
-        const n = await nativePlay.resolveKuwo(rid, qPreferred);
-        const ok = await accept(n, `native:kw-fast:${song.name}`);
-        if (ok) {
-          console.log('[play] 酷我原生秒切成功', song.name, song.artist);
-          return ok;
+          const nameExact = wantK && sn === wantK;
+          const nameClose = wantK && (sn.includes(wantK) || wantK.includes(sn));
+          const artistHit = !artK || (sa && (sa.includes(artK) || artK.includes(sa.split(/[\/、,&|]/)[0].trim())));
+          if (nameExact) sc += 50;
+          else if (nameClose) sc += 25;
+          if (artK && artistHit) sc += 30;
+          // 同名但歌手完全不同 → 大概率不是原曲
+          if (artK && !artistHit && (nameExact || nameClose)) sc -= 120;
+          if (/live|演唱会|伴奏|片段|dj|remix|串烧/i.test(sn)) sc -= 20;
+          return { song: s, score: sc };
+        })
+        .sort((a, b) => b.score - a.score);
+
+      // 只信「歌名+歌手至少对上、得分够高」的候选；全都不像原曲就跳过快路径
+      const best = kwScored[0];
+      if (best && best.score >= 60) {
+        for (const { song } of kwScored.slice(0, 3)) {
+          const rid = String(song.songId || '').replace(/^kw[:/]/i, '');
+          const n = await nativePlay.resolveKuwo(rid, qPreferred);
+          const ok = await accept(n, `native:kw-fast:${song.name}`);
+          if (ok) {
+            console.log('[play] 酷我原生秒切成功', song.name, song.artist);
+            return ok;
+          }
         }
+      } else {
+        console.warn('[play] 酷我快路径无可信候选，跳过（避免同名翻唱当原曲播）');
       }
     } catch (e) {
       errors.push(`酷我快路径: ${shortErr(e)}`);
     }
 
-    // 1) 原平台（一般不再走洛雪）
+    // 1) 原平台原生直链
     const primaryInfo = buildLxMusicInfo(songId, songMeta, primary);
     if (primary === 'kw') {
       try {
@@ -667,14 +396,23 @@ class SourceManager {
       if (hit) return hit;
     }
 
-    // 1b) QQ 再搜一次
+    // 1b) QQ 再搜一次（带播放优先 signal：使用播放超时而非预热超时，
+    // 并设总预算，避免预热超时 9s×2 拖死切歌）
     try {
       if (nkiQq.isEnabled() && songMeta.name) {
-        const nkiRetry = await nkiQq.resolveBySearch(
-          songMeta.name,
-          songMeta.artist || '',
-          qPreferred
-        );
+        const retryBudgetCtrl = new AbortController();
+        const retryBudgetTimer = setTimeout(() => retryBudgetCtrl.abort(), 6000);
+        let nkiRetry;
+        try {
+          nkiRetry = await nkiQq.resolveBySearch(
+            songMeta.name,
+            songMeta.artist || '',
+            qPreferred,
+            retryBudgetCtrl.signal
+          );
+        } finally {
+          clearTimeout(retryBudgetTimer);
+        }
         const retryUrl =
           typeof nkiRetry === 'string' ? nkiRetry : nkiRetry && nkiRetry.url ? nkiRetry.url : null;
         const ok = await accept(retryUrl, 'nki-qq-retry');
@@ -706,9 +444,41 @@ class SourceManager {
 
     console.log(`[play] 换源候选 ${alts.length} 首 primary=${primary} vip=${maybeVip}`);
 
+    // 换源平台排序
+    const wantNameK = String(songMeta.name || '').toLowerCase().replace(/\s+/g, '');
+    const wantArtistK = String(songMeta.artist || '')
+      .toLowerCase()
+      .split(/[\\/、,&|]/)[0]
+      .trim();
+    const altScore = (alt) => {
+      const sn = String(alt.name || '').toLowerCase().replace(/\s+/g, '');
+      const sa = String(alt.artist || '').toLowerCase();
+      let sc = 0;
+      if (wantNameK && sn === wantNameK) sc += 50;
+      else if (wantNameK && (sn.includes(wantNameK) || wantNameK.includes(sn))) sc += 25;
+      else sc -= 40;
+      const artistHit =
+        !wantArtistK || (sa && (sa.includes(wantArtistK) || wantArtistK.includes(sa.split(/[\\/、,&|]/)[0].trim())));
+      if (artistHit) sc += 30;
+      else if (wantArtistK) sc -= 60; // 歌手对不上 → 大概率翻唱/现场
+      // 变体重罚：Live/演唱会/DJ/Remix 不该顶掉录音室版
+      if (/live|演唱会|巡回|concert|伴奏|片段|dj|remix|串烧|翻唱|cover/i.test(`${alt.name || ''} ${alt.artist || ''}`)) {
+        sc -= 80;
+      }
+      return sc;
+    };
+    alts = [...alts]
+      .map((a) => ({ alt: a, sc: altScore(a) }))
+      .sort((x, y) => y.sc - x.sc)
+      .map((x) => x.alt)
+      // 只试评分最高的前 4 个候选，避免 20+ 候选逐个串行拖死切歌
+      .slice(0, 4);
+
     for (const alt of alts) {
       const p = alt.platform || detectLxPlatform(alt.songId, alt.source);
       if (p === 'kw') {
+        // 歌名+歌手都对不上、或明显是 Live 变体的候选不进原生酷我直取
+        if (altScore(alt) < 20) continue;
         const rid = String(alt.songId || '').replace(/^kw[:/]/i, '');
         try {
           const n = await nativePlay.resolveKuwo(rid, qPreferred);
@@ -724,6 +494,8 @@ class SourceManager {
     }
 
     for (const alt of alts) {
+      // Live/翻唱变体不进换源通道
+      if (altScore(alt) < 20) continue;
       const p = alt.platform || detectLxPlatform(alt.songId, alt.source);
       const info = buildLxMusicInfo(
         alt.songId,
@@ -746,25 +518,13 @@ class SourceManager {
       }
     }
 
-    // 3) 网易公开 API
+    // 3) 网易公开 API（已与前面通道并行起跑，这里按优先级采纳）
     if (primary === 'wy' || extractNeteaseId(songId)) {
-      try {
-        for (const q of qualityLadder(qPreferred)) {
-          const url = await resolveNeteasePlayUrl(songId, q);
-          const ok = await accept(url, `netease:${q}`);
-          if (ok) return ok;
-        }
-      } catch (e) {
-        errors.push(`网易兜底: ${shortErr(e)}`);
+      const neteaseUrl = await neteasePromise;
+      if (neteaseUrl) {
+        const ok = await accept(neteaseUrl, 'netease');
+        if (ok) return ok;
       }
-    }
-
-    if (!wait.ready) {
-      throw new Error(
-        friendlyPlayError(
-          '音源仍在初始化或未开启。请稍候几秒，或到设置页确认已打开至少一个播放音源。'
-        )
-      );
     }
 
     throw new Error(
@@ -787,6 +547,11 @@ class SourceManager {
       }
     }
 
+    // 当前搜索主力是 QQ，QQ mid 不能按网易云数字 ID 查询歌词。
+    if (detectLxPlatform(songId, sourceId) === 'tx') {
+      return fetchQqLyric(songId);
+    }
+
     return fetchNeteaseLyric(songId);
   }
 
@@ -797,7 +562,7 @@ class SourceManager {
         sources: [
           {
             name: 'note',
-            note: '播放取链使用内置洛雪兼容音源（设置中可开关）。此处可添加额外 JSON/JS 音源。',
+            note: '播放取链使用西瓜糖 QQ 解析。此处可添加额外 JSON/JS 音源。',
             enabled: false,
           },
         ],
@@ -909,7 +674,7 @@ function extractNeteaseId(songId) {
 }
 
 /**
- * 将 songId / sourceId 映射为洛雪平台 key：kw/kg/tx/wy/mg
+ * 将 songId / sourceId 映射为平台 key：kw/kg/tx/wy/mg
  */
 function detectLxPlatform(songId, sourceId) {
   const sid = String(songId || '');
@@ -934,7 +699,7 @@ function detectLxPlatform(songId, sourceId) {
 }
 
 /**
- * 构造 LX musicInfo（多数脚本读 songmid / hash）
+ * 构造平台 musicInfo（酷狗读 hash、QQ 读 songmid）
  * @param {string} songId
  * @param {object} songMeta
  * @param {string} [platform]
@@ -973,7 +738,7 @@ function buildLxMusicInfo(songId, songMeta = {}, platform) {
   };
 }
 
-/** 粗判试听/截断链接（洛雪也会尽量避开） */
+/** 粗判试听/截断链接 */
 function isLikelyTrialUrl(url) {
   if (!url) return true;
   const u = String(url).toLowerCase();
@@ -1010,10 +775,10 @@ function shortErr(e) {
   return m.replace(/https?:\/\/\S+/gi, '').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
-/** User-facing play errors — strip technical noise & 洛雪脚本吓人原文 */
+/** User-facing play errors — strip technical noise from third-party script errors */
 function friendlyPlayError(message) {
   const m = String(message || '').replace(/https?:\/\/\S+/gi, '').trim();
-  // 六音/野花等脚本经典文案 → 统一成人话，别吓人
+  // 第三方脚本经典文案 → 统一成人话，别吓人
   if (/数字专辑|无法获取播放链接|该渠道|GetMedia|无音源/i.test(m)) {
     return '当前音源拿不到完整播放地址，正在/已尝试其它平台换源。若仍失败请换一首或稍后再试';
   }
@@ -1218,6 +983,45 @@ async function fetchNeteaseLyric(songId) {
     const lrc = data?.lrc?.lyric || '';
     return parseLrc(lrc);
   } catch {
+    return { lines: [], metadata: null };
+  }
+}
+
+function extractQqMid(songId) {
+  const value = String(songId || '').trim();
+  const match = value.match(/^(?:tx|qq)[:/](.+)$/i);
+  return (match ? match[1] : value).trim() || null;
+}
+
+async function fetchQqLyric(songId) {
+  const mid = extractQqMid(songId);
+  if (!mid) return { lines: [], metadata: null };
+
+  try {
+    const body = await httpGet(
+      `https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=${encodeURIComponent(mid)}&format=json`,
+      10000,
+      {
+        Referer: 'https://y.qq.com/',
+        Origin: 'https://y.qq.com',
+      }
+    );
+    const jsonText = body
+      .replace(/^\s*[^(]+\(/, '')
+      .replace(/\)\s*;?\s*$/, '')
+      .trim();
+    const data = JSON.parse(jsonText);
+    const encoded = data?.lyric || data?.lyric_lrc || '';
+    if (!encoded) return { lines: [], metadata: null };
+
+    // QQ 返回的 lyric 通常是 base64，少数代理会直接返回 LRC 文本。
+    let lrc = String(encoded);
+    if (!/\[\d{1,2}:\d{2}/.test(lrc)) {
+      lrc = Buffer.from(lrc, 'base64').toString('utf8');
+    }
+    return parseLrc(lrc);
+  } catch (e) {
+    console.warn('[lyric] QQ fetch failed', e.message || e);
     return { lines: [], metadata: null };
   }
 }

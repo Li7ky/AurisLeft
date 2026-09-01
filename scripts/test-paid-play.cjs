@@ -13,8 +13,7 @@ app.whenReady().then(async () => {
   console.log('nki status', nki.getStatus());
 
   const mgr = new SourceManager();
-  // 不依赖洛雪也能测 nki
-  void mgr.ensureLxBuiltin().catch(() => {});
+  // 播放取链只走西瓜糖 nki
 
   const cases = [
     { q: '晴天 周杰伦', note: 'VIP杰伦' },

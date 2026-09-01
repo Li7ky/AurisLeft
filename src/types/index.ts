@@ -55,7 +55,7 @@ export interface Song {
   fee?: number;
   /** 是否可能无法播放（前端展示用） */
   playableHint?: 'ok' | 'maybe_vip' | 'unknown';
-  /** 洛雪平台：wy/kw/kg/tx/mg */
+  /** 平台 sumber: wy/kw/kg/tx/mg */
   platform?: string;
   platformLabel?: string;
   /** 酷狗 hash */

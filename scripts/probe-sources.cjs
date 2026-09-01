@@ -1,5 +1,5 @@
 /**
- * 逐源探测：哪些内置音源真正能出链
+ * 逐通道探测：哪些播放取链通道真正能出链
  * 运行: npx electron scripts/probe-sources.cjs
  */
 const path = require('path');
@@ -8,8 +8,9 @@ process.chdir(path.join(__dirname, '..'));
 
 const nativePlay = require('../electron/services/nativePlay.cjs');
 const catalogSearch = require('../electron/services/catalogSearch.cjs');
+const nkiQq = require('../electron/services/nkiQq.cjs');
 
-// 用固定热门曲元数据测各平台
+// 用固定热门曲元数据测各通道
 async function pickFixtures() {
   const batches = await catalogSearch.searchAllPlatforms('演员 薛之谦', 1, 10000, [
     'wy',
@@ -24,34 +25,13 @@ async function pickFixtures() {
     const hit =
       songs.find(
         (s) =>
-          /薛之谦|薛之谦/.test(s.artist) &&
+          /薛之谦/.test(s.artist) &&
           /演员/.test(s.name) &&
           !/remix|dj|翻唱|片段/i.test(s.name + s.artist)
       ) || songs[0];
     if (hit) by[b.id] = hit;
   }
   return by;
-}
-
-function buildInfo(song, platform) {
-  const bare = String(song.songId || '').replace(/^(wy|kw|kg|tx|mg)[:/]/i, '');
-  return {
-    songmid: bare,
-    songId: bare,
-    id: bare,
-    hash: song.hash || (platform === 'kg' ? bare : undefined),
-    strMediaMid: song.strMediaMid,
-    name: song.name,
-    singer: song.artist,
-    albumName: song.album || '',
-    interval: song.duration
-      ? `${Math.floor(song.duration / 60)}:${String(song.duration % 60).padStart(2, '0')}`
-      : undefined,
-    img: song.coverUrl,
-    types: [],
-    _types: {},
-    typeUrl: {},
-  };
 }
 
 async function probeUrl(url) {
@@ -71,15 +51,8 @@ async function probeUrl(url) {
 }
 
 app.whenReady().then(async () => {
-  const { SourceManager } = require('../electron/services/sources.cjs');
-  const mgr = new SourceManager();
-  console.log('=== 音源可用性探测 ===\n');
-  console.log('[1] 初始化内置音源…');
-  await mgr.ensureLxBuiltin();
-  const st = await mgr.getLxStatus();
-  console.log(`    就绪 ${st.count}/${st.total}: ${st.names.join(', ') || '无'}\n`);
-
-  console.log('[2] 准备测试曲目元数据…');
+  console.log('=== 播放通道可用性探测 ===\n');
+  console.log('[1] 准备测试曲目元数据…');
   const fixtures = await pickFixtures();
   for (const [p, s] of Object.entries(fixtures)) {
     console.log(`    ${p}: ${s.name} - ${s.artist} (${s.songId})`);
@@ -90,55 +63,56 @@ app.whenReady().then(async () => {
     return;
   }
 
-  const hosts = mgr.lxEngine.hosts.filter((h) => h.ready);
-  const platforms = ['kw', 'kg', 'tx', 'wy'];
   const rows = [];
+  const row = { name: '西瓜糖 nkiQq', results: {} };
 
-  console.log('\n[3] 逐源 × 平台取链…\n');
-
-  for (const host of hosts) {
-    const name = host.header.name;
-    const plats = Object.keys(host.sources || {});
-    const row = {
-      id: host.id,
-      name,
-      enabled: host.enabled !== false,
-      plats,
-      results: {},
-    };
-
-    for (const p of platforms) {
-      if (!plats.includes(p)) {
-        row.results[p] = '—';
-        continue;
-      }
-      if (!fixtures[p]) {
-        row.results[p] = '无测试曲';
-        continue;
-      }
-      const info = buildInfo(fixtures[p], p);
+  console.log('\n[2] 西瓜糖 nkiQq 通道…\n');
+  if (!nkiQq.isEnabled()) {
+    row.results.tx = '未启用（缺 API key）';
+    console.log('  跳过：nkiQq 未启用（未配置 API key）');
+  } else {
+    const tx = fixtures.tx;
+    if (tx) {
+      const mid = String(tx.songId || '').replace(/^tx[:/]/i, '');
       const t0 = Date.now();
       try {
-        const url = await host.getMusicUrl(p, info, '320k');
-        const ok = await probeUrl(url);
-        const ms = Date.now() - t0;
-        row.results[p] = ok ? `OK ${ms}ms` : `链无效 ${ms}ms`;
-        console.log(
-          `  [${ok ? 'OK' : 'BAD'}] ${name.padEnd(16)} ${p} ${ms}ms  ${String(url).slice(0, 70)}`
-        );
+        const res = await nkiQq.resolvePlayUrl({
+          mid,
+          name: tx.name,
+          artist: tx.artist,
+          quality: '320k',
+        });
+        const url = typeof res === 'string' ? res : res?.url || null;
+        const ok = url && (await probeUrl(url));
+        row.results.tx = ok ? `OK ${Date.now() - t0}ms` : 'FAIL';
+        console.log(`  [${ok ? 'OK' : 'FAIL'}] nkiQq mid        tx  ${Date.now() - t0}ms  ${String(url || '').slice(0, 70)}`);
       } catch (e) {
-        const ms = Date.now() - t0;
-        const msg = (e.message || String(e)).replace(/\s+/g, ' ').slice(0, 60);
-        row.results[p] = `FAIL ${ms}ms`;
-        console.log(`  [FAIL] ${name.padEnd(16)} ${p} ${ms}ms  ${msg}`);
+        row.results.tx = `FAIL ${Date.now() - t0}ms`;
+        console.log('  [FAIL] nkiQq mid', e.message || e);
+      }
+    } else {
+      row.results.tx = '无测试曲';
+    }
+    if (fixtures.kw && nkiQq.isEnabled()) {
+      const s = fixtures.kw;
+      const t0 = Date.now();
+      try {
+        const res = await nkiQq.resolveBySearch(s.name, s.artist, '320k');
+        const url = typeof res === 'string' ? res : res?.url || null;
+        const ok = url && (await probeUrl(url));
+        row.results.kw = ok ? `OK ${Date.now() - t0}ms` : 'FAIL';
+        console.log(`  [${ok ? 'OK' : 'FAIL'}] nkiQq 歌名搜索   kw  ${Date.now() - t0}ms  ${String(url || '').slice(0, 70)}`);
+      } catch (e) {
+        row.results.kw = `FAIL ${Date.now() - t0}ms`;
+        console.log('  [FAIL] nkiQq 歌名搜索', e.message || e);
       }
     }
-    rows.push(row);
   }
+  rows.push(row);
 
   // 原生兜底
-  console.log('\n[4] 内置原生兜底（不依赖洛雪脚本）…\n');
-  const nativeRow = { name: '原生兜底', results: {} };
+  console.log('\n[3] 原生直链通道…\n');
+  const nativeRow = { name: '原生酷我/酷狗', results: {} };
   if (fixtures.kw) {
     const rid = String(fixtures.kw.songId).replace(/^kw[:/]/i, '');
     const t0 = Date.now();
@@ -164,37 +138,22 @@ app.whenReady().then(async () => {
       console.log('  [FAIL] 原生酷狗', e.message);
     }
   }
+  rows.push(nativeRow);
 
   console.log('\n========== 汇总 ==========');
   console.log(
-    '音源'.padEnd(18) +
-      '开关'.padEnd(6) +
+    '通道'.padEnd(18) +
       'kw'.padEnd(14) +
       'kg'.padEnd(14) +
-      'tx'.padEnd(14) +
-      'wy'.padEnd(14) +
-      '评价'
+      'tx'.padEnd(14)
   );
-  console.log('-'.repeat(90));
-
+  console.log('-'.repeat(60));
   for (const r of rows) {
-    const okCount = platforms.filter((p) => String(r.results[p] || '').startsWith('OK')).length;
-    const tryCount = platforms.filter((p) => r.plats.includes(p)).length;
-    let verdict = '不可用';
-    if (okCount >= 2) verdict = '推荐';
-    else if (okCount === 1) verdict = '勉强可用';
-    else if (okCount === 0 && tryCount) verdict = '当前不可用';
-
     const cell = (p) => String(r.results[p] || '—').padEnd(14);
-    console.log(
-      `${r.name.slice(0, 16).padEnd(18)}${(r.enabled ? '开' : '关').padEnd(6)}${cell('kw')}${cell('kg')}${cell('tx')}${cell('wy')}${verdict} (${okCount}/${tryCount})`
-    );
+    console.log(`${r.name.slice(0, 16).padEnd(18)}${cell('kw')}${cell('kg')}${cell('tx')}`);
   }
-  console.log(
-    `${'原生酷我/酷狗'.padEnd(18)}${'—'.padEnd(6)}${String(nativeRow.results.kw || '—').padEnd(14)}${String(nativeRow.results.kg || '—').padEnd(14)}${'—'.padEnd(14)}${'—'.padEnd(14)}${String(nativeRow.results.kw || '').startsWith('OK') ? '推荐(内置)' : '弱'}`
-  );
 
-  console.log('\n说明: OK=取到可探测音频链; FAIL=脚本报错/空链; —=不支持该平台');
+  console.log('\n说明: OK=取到可探测音频链; FAIL=报错/空链; —=不支持该平台');
   console.log('测试曲: 演员-薛之谦（各平台对应 ID）\n');
 
   app.exit(0);

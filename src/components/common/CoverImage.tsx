@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Music2 } from 'lucide-react';
 import './CoverImage.css';
 
@@ -27,6 +27,11 @@ interface CoverImageProps {
 export default function CoverImage({ src, alt = '', className = '', size = 20 }: CoverImageProps) {
   const normalized = normalizeCoverUrl(src);
   const [failed, setFailed] = useState(false);
+
+  // src 变化时重置失败态,避免同一组件实例切换歌曲后仍显示占位图
+  useEffect(() => {
+    setFailed(false);
+  }, [normalized]);
 
   if (!normalized || failed) {
     return (

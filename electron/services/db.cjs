@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { getDbPath, getSourcesPath, getLxPrefsPath } = require('./appPaths.cjs');
+const { getDbPath, getSourcesPath } = require('./appPaths.cjs');
 
 /** Bump when on-disk shape changes incompatibly */
 const SCHEMA_VERSION = 1;
@@ -151,16 +151,9 @@ class Database {
   /** Full portable backup object (db + optional source configs) */
   exportBackup() {
     let sourcesConfig = null;
-    let lxPrefs = null;
     try {
       const sp = getSourcesPath();
       if (fs.existsSync(sp)) sourcesConfig = JSON.parse(fs.readFileSync(sp, 'utf8'));
-    } catch {
-      /* ignore */
-    }
-    try {
-      const lp = getLxPrefsPath();
-      if (fs.existsSync(lp)) lxPrefs = JSON.parse(fs.readFileSync(lp, 'utf8'));
     } catch {
       /* ignore */
     }
@@ -171,7 +164,6 @@ class Database {
       exportedAt: new Date().toISOString(),
       data: JSON.parse(JSON.stringify(this.data)),
       sourcesConfig,
-      lxPrefs,
     };
   }
 
@@ -215,14 +207,6 @@ class Database {
         restored.push('用户音源配置');
       } catch (e) {
         console.warn('[db] restore sourcesConfig failed', e.message || e);
-      }
-    }
-    if (payload.lxPrefs) {
-      try {
-        fs.writeFileSync(getLxPrefsPath(), JSON.stringify(payload.lxPrefs, null, 2), 'utf8');
-        restored.push('洛雪音源开关');
-      } catch (e) {
-        console.warn('[db] restore lxPrefs failed', e.message || e);
       }
     }
     return { ok: true, restored };

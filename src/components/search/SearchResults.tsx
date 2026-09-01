@@ -273,8 +273,8 @@ export default function SearchResults() {
     );
   }
 
-  // 多平台结果已在 store 合并去重，这里只展示扁平列表（不显示平台）
-  const allSongs = Array.from(results.values()).flat();
+  // 多平台结果已在 store 合并去重,直接展示扁平列表
+  const allSongs = results;
   if (allSongs.length === 0) {
     return <div className="search-results__empty">未找到相关结果</div>;
   }

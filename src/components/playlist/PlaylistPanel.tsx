@@ -46,6 +46,15 @@ function SongRow({ song, index, onContextMenu, moveRow, allSongs }: SongRowProps
     },
   });
 
+  // react-dnd connector 引用稳定,空依赖只注册一次,避免每渲染重挂 drag/drop
+  const setNodeRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      drag(drop(node));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   const handlePlay = () => {
     const list = allSongs.map((s) => playlistSongToSong(s));
     void playList(list, index, Quality.K320, addToast);
@@ -53,11 +62,7 @@ function SongRow({ song, index, onContextMenu, moveRow, allSongs }: SongRowProps
 
   return (
     <div
-      ref={
-        ((node: HTMLDivElement | null) => {
-          drag(drop(node));
-        }) as React.Ref<HTMLDivElement>
-      }
+      ref={setNodeRef}
       className={`playlist-row${isActive ? ' playlist-row--active' : ''}${isDragging ? ' playlist-row--dragging' : ''}`}
       onClick={handlePlay}
       onContextMenu={(e) => onContextMenu(e, song)}

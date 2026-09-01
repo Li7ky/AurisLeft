@@ -37,13 +37,18 @@ export function useSleepTimer() {
     return unlisten;
   }, []);
 
+  // 仅在定时器激活时轮询；挂载时先查一次以恢复上次会话遗留的定时器状态
   useEffect(() => {
     void getStatus();
+  }, []);
+
+  useEffect(() => {
+    if (!isActive) return;
     const id = window.setInterval(() => {
       void getStatus();
     }, 1000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [isActive]);
 
   return { isActive, remaining, start, cancel };
 }

@@ -5,7 +5,7 @@ import { Quality } from '../types';
 
 interface SearchState {
   keyword: string;
-  results: Map<string, Song[]>;
+  results: Song[];
   loading: boolean;
   page: number;
   hasMore: boolean;
@@ -80,7 +80,7 @@ function songKeyFallback(song: Song) {
 
 export const useSearchStore = create<SearchStore>((set, get) => ({
   keyword: '',
-  results: new Map(),
+  results: [],
   loading: false,
   page: 1,
   hasMore: true,
@@ -96,14 +96,12 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
       if (requestId !== searchRequestId) return;
 
       const merged = dedupeSongs(result.songs);
-      const sourceMap = new Map<string, Song[]>();
-      sourceMap.set('all', merged);
       const hasMore =
         typeof result.hasMore === 'boolean'
           ? result.hasMore
-          : result.songs.length >= (result.perPage || 30) * 0.7;
+          : result.songs.length >= (result.perPage || 60) * 0.7;
       set({
-        results: sourceMap,
+        results: merged,
         hasMore: merged.length === 0 ? false : hasMore,
         loading: false,
       });
@@ -131,6 +129,6 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
   },
 
   clearResults: () => {
-    set({ keyword: '', results: new Map(), page: 1, hasMore: true, error: null });
+    set({ keyword: '', results: [], page: 1, hasMore: true, error: null });
   },
 }));

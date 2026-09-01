@@ -9,14 +9,14 @@ const { app } = require('electron');
 process.chdir(path.join(__dirname, '..'));
 
 const CASES = [
-  { keyword: '晴天 周杰伦', note: '杰伦热门' },
-  { keyword: '告白气球 周杰伦', note: '杰伦热门2' },
-  { keyword: '夜曲 周杰伦', note: '杰伦可能VIP' },
-  { keyword: '孤勇者 陈奕迅', note: '热门影视' },
-  { keyword: '起风了 买辣椒也用券', note: '热门翻唱' },
-  { keyword: '句号 邓紫棋', note: 'GEM' },
+  { keyword: '晴天 周杰伦', note: '周杰伦' },
+  { keyword: '孤勇者 陈奕迅', note: '陈奕迅' },
+  { keyword: '句号 邓紫棋', note: '邓紫棋' },
   { keyword: '演员 薛之谦', note: '薛之谦' },
-  { keyword: '稻香 周杰伦', note: '杰伦免费向' },
+  { keyword: '江南 林俊杰', note: '林俊杰' },
+  { keyword: '倔强 五月天', note: '五月天' },
+  { keyword: 'Love Story Taylor Swift', note: 'Taylor Swift' },
+  { keyword: 'Shape of You Ed Sheeran', note: 'Ed Sheeran' },
 ];
 
 async function pickSong(catalogSearch, keyword) {
@@ -87,10 +87,7 @@ app.whenReady().then(async () => {
 
   console.log('=== AurisLeft source play test ===');
   const mgr = new SourceManager();
-  console.log('[test] warming LX sources...');
-  await mgr.ensureLxBuiltin();
-  const st = await mgr.getLxStatus();
-  console.log(`[test] LX ready count=${st.count}/${st.total} names=${st.names.join(',')}`);
+  console.log('[test] playback via nkiQq + native channels (LX removed)');
 
   const results = [];
 

@@ -27,35 +27,6 @@ export async function listSources(): Promise<SourceInfo[]> {
   return invoke<SourceInfo[]>('list_sources');
 }
 
-export interface LxHostInfo {
-  id: string;
-  name: string;
-  version?: string;
-  ready: boolean;
-  enabled?: boolean;
-  platforms: string[];
-  hidden?: boolean;
-}
-
-export async function getLxStatus(): Promise<{
-  enabled: boolean;
-  count: number;
-  total?: number;
-  ready?: boolean;
-  initializing?: boolean;
-  names: string[];
-  hosts?: LxHostInfo[];
-}> {
-  return invoke('get_lx_status');
-}
-
-export async function toggleLxSource(
-  sourceId: string,
-  enabled?: boolean
-): Promise<LxHostInfo> {
-  return invoke('toggle_lx_source', { sourceId, enabled });
-}
-
 export async function toggleSource(sourceId: string): Promise<unknown> {
   return invoke('toggle_source', { sourceId });
 }
@@ -363,35 +334,4 @@ export async function setNkiQqEnabled(
   return invoke('set_nki_qq_enabled', { enabled });
 }
 
-/** Wait until LX sources finish init (or timeout). Returns status snapshot. */
-export async function waitForSourcesReady(timeoutMs = 25000): Promise<{
-  ready: boolean;
-  count: number;
-  initializing: boolean;
-}> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const s = await getLxStatus();
-    if (!s.initializing && (s.count > 0 || s.ready === true || s.total === 0)) {
-      return {
-        ready: Boolean(s.count > 0 || s.enabled),
-        count: s.count ?? 0,
-        initializing: false,
-      };
-    }
-    if (!s.initializing && s.count === 0) {
-      return { ready: false, count: 0, initializing: false };
-    }
-    await new Promise((r) => setTimeout(r, 400));
-  }
-  const last = await getLxStatus().catch(() => ({
-    count: 0,
-    enabled: false,
-    initializing: true,
-  }));
-  return {
-    ready: Boolean(last.count > 0 || last.enabled),
-    count: last.count ?? 0,
-    initializing: Boolean(last.initializing),
-  };
-}
+

@@ -124,15 +124,31 @@ export default function PlayerBar() {
   }, [repeatMenuOpen, moreMenuOpen]);
 
   useEffect(() => {
-    const tick = () => {
+    // 首次查询一次:无定时器则不启动 interval,避免空载每秒 IPC
+    let cancelled = false;
+    void getSleepTimerStatus()
+      .then((s) => {
+        if (!cancelled) setTimerLeft(s.isActive ? s.remainingSeconds : 0);
+      })
+      .catch(() => {
+        if (!cancelled) setTimerLeft(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 仅在定时器激活时每秒轮询;无定时器时不再触发 IPC
+  const timerActive = timerLeft > 0;
+  useEffect(() => {
+    if (!timerActive) return;
+    const id = window.setInterval(() => {
       void getSleepTimerStatus()
         .then((s) => setTimerLeft(s.isActive ? s.remainingSeconds : 0))
         .catch(() => setTimerLeft(0));
-    };
-    tick();
-    const id = window.setInterval(tick, 1000);
+    }, 1000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [timerActive]);
 
   // 记忆静音前的音量，取消静音时恢复而不是固定 0.8
   useEffect(() => {

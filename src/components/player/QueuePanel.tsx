@@ -49,10 +49,18 @@ export default function QueuePanel() {
             const active =
               currentSong && songKey(song) === songKey(currentSong) && index === currentIndex;
             return (
-              <button
+              <div
                 key={`${songKey(song)}-${index}`}
                 className={`queue-panel__item${active ? ' queue-panel__item--active' : ''}`}
+                role="button"
+                tabIndex={0}
                 onClick={() => play(song, quality)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    void play(song, quality);
+                  }
+                }}
               >
                 <span className="queue-panel__index">
                   {active ? <Play size={12} fill="currentColor" /> : index + 1}
@@ -61,7 +69,8 @@ export default function QueuePanel() {
                   <span className="queue-panel__name truncate">{song.name}</span>
                   <span className="queue-panel__artist truncate">{song.artist}</span>
                 </span>
-                <span
+                <button
+                  type="button"
                   className="queue-panel__remove"
                   title="移除"
                   onClick={(e) => {
@@ -70,8 +79,8 @@ export default function QueuePanel() {
                   }}
                 >
                   <X size={14} />
-                </span>
-              </button>
+                </button>
+              </div>
             );
           })
         )}
