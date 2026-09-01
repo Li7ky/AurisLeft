@@ -1,7 +1,7 @@
 {
   "name": "aurisleft",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "左耳 desktop music player (Electron)",
   "author": "左耳 Contributors",
   "main": "electron/main.cjs",
