@@ -1,6 +1,6 @@
 # AurisLeft
 
-自用桌面音乐播放器 · **v1.0.0**
+自用桌面音乐播放器 · **v1.1.0**
 
 ## 能做什么
 
@@ -15,7 +15,8 @@
 
 | 版本 | 说明 |
 |---|---|
-| **[v1.0.0 正式版](https://github.com/Li7ky/AurisLeft/releases/tag/v1.0.0)** | **推荐**，日常使用下这个 |
+| **[v1.1.0 正式版](https://github.com/Li7ky/AurisLeft/releases/tag/v1.1.0)** | **推荐**，日常使用下这个 |
+| [v1.0.0 正式版](https://github.com/Li7ky/AurisLeft/releases/tag/v1.0.0) | 上一代正式版 |
 | [v0.2.0-beta 测试版](https://github.com/Li7ky/AurisLeft/releases/tag/v0.2.0-beta) | 早期测试包，不推荐日常用 |
 
 ## 怎么用
